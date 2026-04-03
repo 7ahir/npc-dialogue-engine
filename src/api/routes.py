@@ -112,9 +112,7 @@ async def list_characters(request: Request) -> list[CharacterSummary]:
     characters = []
     for char_id in loader.list_characters():
         data = loader.load(char_id)
-        characters.append(
-            CharacterSummary(id=data["id"], name=data["name"], role=data["role"])
-        )
+        characters.append(CharacterSummary(id=data["id"], name=data["name"], role=data["role"]))
     return characters
 
 

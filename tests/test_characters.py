@@ -2,9 +2,6 @@
 
 from pathlib import Path
 
-import yaml
-import pytest
-
 REQUIRED_FIELDS = [
     "id",
     "name",
@@ -31,7 +28,8 @@ class TestCharacterConfigs:
         assert len(ids) == len(set(ids)), "Duplicate character IDs found"
 
     def test_minimum_character_count(self, all_characters: dict[str, dict]) -> None:
-        assert len(all_characters) >= 3, f"Expected at least 3 characters, got {len(all_characters)}"
+        count = len(all_characters)
+        assert count >= 3, f"Expected at least 3 characters, got {count}"
 
     def test_example_phrases_non_empty(self, all_characters: dict[str, dict]) -> None:
         for char_id, char_data in all_characters.items():
@@ -47,9 +45,7 @@ class TestCharacterConfigs:
 
     def test_quest_hooks_present(self, all_characters: dict[str, dict]) -> None:
         for char_id, char_data in all_characters.items():
-            assert len(char_data["quest_hooks"]) >= 1, (
-                f"Character '{char_id}' has no quest hooks"
-            )
+            assert len(char_data["quest_hooks"]) >= 1, f"Character '{char_id}' has no quest hooks"
 
     def test_blacksmith_specific(self, sample_character: dict) -> None:
         assert sample_character["id"] == "blacksmith"

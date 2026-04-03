@@ -12,11 +12,9 @@ from src.training.data_generation import (
     generate_training_data,
 )
 from src.training.dataset import (
-    load_dialogue_dataset,
     create_train_val_split,
-    _load_character_persona,
+    load_dialogue_dataset,
 )
-
 
 # ─── Scenario Definitions ────────────────────────────────────────
 
@@ -39,9 +37,16 @@ class TestScenarios:
     def test_expected_scenarios(self):
         ids = {s["id"] for s in SCENARIOS}
         expected = {
-            "greeting", "quest_request", "trade_inquiry", "lore_question",
-            "threat_response", "personal_question", "farewell",
-            "request_help", "rumor_gossip", "return_visit",
+            "greeting",
+            "quest_request",
+            "trade_inquiry",
+            "lore_question",
+            "threat_response",
+            "personal_question",
+            "farewell",
+            "request_help",
+            "rumor_gossip",
+            "return_visit",
         }
         assert ids == expected
 
@@ -218,10 +223,29 @@ class TestLoadDialogueDataset:
 
     def test_skips_invalid_json(self, tmp_path):
         path = tmp_path / "bad.jsonl"
+        valid1 = json.dumps(
+            {
+                "valid": True,
+                "character": "blacksmith",
+                "conversation": [
+                    {"role": "player", "content": "Hi"},
+                    {"role": "npc", "content": "Hello"},
+                ],
+            }
+        )
+        valid2 = json.dumps(
+            {
+                "character": "blacksmith",
+                "conversation": [
+                    {"role": "player", "content": "Bye"},
+                    {"role": "npc", "content": "Farewell"},
+                ],
+            }
+        )
         with open(path, "w") as f:
-            f.write('{"valid": true, "character": "blacksmith", "conversation": [{"role": "player", "content": "Hi"}, {"role": "npc", "content": "Hello"}]}\n')
+            f.write(valid1 + "\n")
             f.write("not json\n")
-            f.write('{"character": "blacksmith", "conversation": [{"role": "player", "content": "Bye"}, {"role": "npc", "content": "Farewell"}]}\n')
+            f.write(valid2 + "\n")
 
         examples = load_dialogue_dataset(path)
         assert len(examples) == 2  # Skipped the invalid line
@@ -229,10 +253,15 @@ class TestLoadDialogueDataset:
     def test_skips_short_conversations(self, tmp_path):
         path = tmp_path / "short.jsonl"
         with open(path, "w") as f:
-            f.write(json.dumps({
-                "character": "blacksmith",
-                "conversation": [{"role": "player", "content": "Hi"}],
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "character": "blacksmith",
+                        "conversation": [{"role": "player", "content": "Hi"}],
+                    }
+                )
+                + "\n"
+            )
 
         examples = load_dialogue_dataset(path)
         assert len(examples) == 0

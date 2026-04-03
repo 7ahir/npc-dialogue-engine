@@ -21,7 +21,7 @@ from src.models.dialogue_model import create_dialogue_model
 from src.pipeline.prompt_templates import PromptBuilder
 from src.rag.embeddings import EmbeddingService
 from src.utils.config import get_config
-from src.utils.logging_config import setup_logging, get_logger
+from src.utils.logging_config import get_logger, setup_logging
 
 
 def main() -> None:
@@ -58,9 +58,7 @@ def main() -> None:
     # Determine characters to evaluate
     character_files = list(config.characters_dir.glob("*.yaml"))
     if args.character:
-        character_files = [
-            f for f in character_files if f.stem == args.character
-        ]
+        character_files = [f for f in character_files if f.stem == args.character]
         if not character_files:
             print(f"Character '{args.character}' not found")
             sys.exit(1)
@@ -146,7 +144,7 @@ def main() -> None:
     print(f"{'=' * 60}")
     print(f"Total examples: {report.total_examples}")
     print(f"Overall pass:   {'✅' if report.overall_pass else '❌'}")
-    print(f"\nMetrics:")
+    print("\nMetrics:")
     for m in report.metrics:
         status = "✅" if m.passed else "❌"
         print(f"  {status} {m.name}: {m.score:.4f} (threshold: {m.threshold})")

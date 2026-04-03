@@ -88,9 +88,7 @@ class MockDialogueModel(DialogueModel):
                     return self._characters[name.lower()]
         return None
 
-    def _select_response(
-        self, character: dict, player_message: str
-    ) -> str:
+    def _select_response(self, character: dict, player_message: str) -> str:
         """Select a contextually appropriate example phrase.
 
         Simple heuristic: if the player message contains keywords that
@@ -202,9 +200,7 @@ class TransformersDialogueModel(DialogueModel):
             from peft import PeftModel
 
             logger.info("loading_lora_adapter", path=str(self._config.lora_path))
-            self._model = PeftModel.from_pretrained(
-                self._model, str(self._config.lora_path)
-            )
+            self._model = PeftModel.from_pretrained(self._model, str(self._config.lora_path))
 
         logger.info("dialogue_model_loaded", model=self._config.base_model)
 
@@ -243,11 +239,12 @@ class TransformersDialogueModel(DialogueModel):
             )
 
         # Decode only the generated tokens (skip the input)
-        generated = outputs[0][inputs["input_ids"].shape[1]:]
+        generated = outputs[0][inputs["input_ids"].shape[1] :]
         return tokenizer.decode(generated, skip_special_tokens=True).strip()
 
     def generate_stream(self, messages: list[dict[str, str]]) -> Iterator[str]:
         from threading import Thread
+
         from transformers import TextIteratorStreamer
 
         tokenizer = self._loaded_tokenizer
@@ -258,9 +255,7 @@ class TransformersDialogueModel(DialogueModel):
         )
         inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
 
-        streamer = TextIteratorStreamer(
-            tokenizer, skip_prompt=True, skip_special_tokens=True
-        )
+        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
 
         generate_kwargs = {
             **inputs,

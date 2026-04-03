@@ -54,9 +54,7 @@ class LoreRetriever:
         if chroma_client is not None:
             self._client = chroma_client
         else:
-            self._client = chromadb.PersistentClient(
-                path=str(self.config.rag.chroma_persist_dir)
-            )
+            self._client = chromadb.PersistentClient(path=str(self.config.rag.chroma_persist_dir))
 
     def retrieve(
         self,
@@ -99,7 +97,7 @@ class LoreRetriever:
         distances = results["distances"][0] if results["distances"] else []
         metadatas = results["metadatas"][0] if results["metadatas"] else []
 
-        for doc, distance, metadata in zip(documents, distances, metadatas):
+        for doc, distance, metadata in zip(documents, distances, metadatas, strict=False):
             # ChromaDB returns cosine distance, convert to similarity
             similarity = 1.0 - distance
 
@@ -131,7 +129,10 @@ class LoreRetriever:
 
         parts: list[str] = []
         for chunk in chunks:
-            header = f"[{chunk.source_file} — {chunk.section_title}]" if chunk.section_title else f"[{chunk.source_file}]"
+            if chunk.section_title:
+                header = f"[{chunk.source_file} — {chunk.section_title}]"
+            else:
+                header = f"[{chunk.source_file}]"
             parts.append(f"{header}\n{chunk.text}")
 
         return "\n\n".join(parts)

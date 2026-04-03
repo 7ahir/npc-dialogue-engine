@@ -67,9 +67,7 @@ class ContextManager:
         self.config = get_config()
         self._sessions: dict[str, Session] = {}
 
-    def get_or_create_session(
-        self, session_id: str, character_id: str
-    ) -> Session:
+    def get_or_create_session(self, session_id: str, character_id: str) -> Session:
         """Get an existing session or create a new one."""
         self._expire_stale_sessions()
 
@@ -105,9 +103,7 @@ class ContextManager:
         now = time.time()
         ttl = self.config.api.session_ttl_seconds
         expired = [
-            sid
-            for sid, session in self._sessions.items()
-            if now - session.last_active > ttl
+            sid for sid, session in self._sessions.items() if now - session.last_active > ttl
         ]
         for sid in expired:
             del self._sessions[sid]

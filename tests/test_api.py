@@ -2,18 +2,16 @@
 
 import os
 
-import pytest
 import httpx
+import pytest
 from fastapi import FastAPI
 
 from src.api.app import create_app
 from src.models.dialogue_model import MockDialogueModel
-from src.models.intent_classifier import IntentClassifier
 from src.pipeline.context_manager import ContextManager
 from src.pipeline.dialogue_pipeline import DialoguePipeline
 from src.pipeline.prompt_templates import PromptBuilder
 from src.rag.retriever import LoreRetriever
-
 
 os.environ["DIALOGUE_MODEL_MODE"] = "mock"
 
@@ -138,9 +136,7 @@ class TestDialogueEndpoint:
         assert resp2.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_dialogue_invalid_character_id_format(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_dialogue_invalid_character_id_format(self, client: httpx.AsyncClient) -> None:
         resp = await client.post(
             "/api/v1/dialogue",
             json={

@@ -11,9 +11,7 @@ class DialogueRequest(BaseModel):
     player_message: str = Field(
         ..., min_length=1, max_length=1000, description="The player's input message"
     )
-    character_id: str = Field(
-        ..., pattern=r"^[a-z_]+$", description="NPC character identifier"
-    )
+    character_id: str = Field(..., pattern=r"^[a-z_]+$", description="NPC character identifier")
     session_id: str = Field(
         default_factory=lambda: str(uuid4()),
         description="Session ID for multi-turn context",

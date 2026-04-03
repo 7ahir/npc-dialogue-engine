@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from src.pipeline.context_manager import ContextManager, Session, Message
+from src.pipeline.context_manager import ContextManager, Session
 
 
 class TestSession:

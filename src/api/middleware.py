@@ -53,9 +53,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
-            REQUEST_COUNT.labels(
-                method=request.method, endpoint=endpoint, status_code="500"
-            ).inc()
+            REQUEST_COUNT.labels(method=request.method, endpoint=endpoint, status_code="500").inc()
             raise
 
         latency = time.perf_counter() - start
@@ -66,9 +64,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             status_code=str(response.status_code),
         ).inc()
 
-        REQUEST_LATENCY.labels(
-            method=request.method, endpoint=endpoint
-        ).observe(latency)
+        REQUEST_LATENCY.labels(method=request.method, endpoint=endpoint).observe(latency)
 
         logger.info(
             "request_completed",

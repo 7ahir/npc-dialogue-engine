@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.models.intent_classifier import IntentClassifier, Intent
+from src.models.intent_classifier import Intent, IntentClassifier
 
 
 @pytest.fixture(scope="module")
@@ -38,9 +38,7 @@ class TestIntentClassifier:
 
     @pytest.mark.slow
     def test_social_intent(self, classifier: IntentClassifier) -> None:
-        intent, confidence, _ = classifier.classify(
-            "Hello there! How are you doing today?"
-        )
+        intent, confidence, _ = classifier.classify("Hello there! How are you doing today?")
         assert intent == Intent.SOCIAL
         assert confidence > 0.2
 

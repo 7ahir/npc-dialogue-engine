@@ -83,9 +83,7 @@ class LoreIndexer:
         if chroma_client is not None:
             self._client = chroma_client
         else:
-            self._client = chromadb.PersistentClient(
-                path=str(self.config.rag.chroma_persist_dir)
-            )
+            self._client = chromadb.PersistentClient(path=str(self.config.rag.chroma_persist_dir))
 
     def index_directory(self, lore_dir: Path | None = None) -> int:
         """Index all markdown files in the lore directory.

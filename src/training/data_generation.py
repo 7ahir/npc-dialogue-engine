@@ -153,7 +153,7 @@ def _generate_template_response(character: dict, scenario: dict) -> str:
 
     # For some scenarios, add contextual flavor
     scenario_id = scenario["id"]
-    name = character["name"]
+    character["name"]
 
     if scenario_id == "greeting":
         greetings = [
@@ -205,7 +205,7 @@ def generate_training_data(
     with open(output_path, "w") as f:
         for char_id, char_data in characters.items():
             for scenario in SCENARIOS:
-                for i in range(num_examples_per_combo):
+                for _i in range(num_examples_per_combo):
                     player_msg = random.choice(scenario["player_messages"])
                     npc_response = _generate_template_response(char_data, scenario)
 

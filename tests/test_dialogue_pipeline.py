@@ -1,7 +1,5 @@
 """Tests for the dialogue pipeline orchestrator."""
 
-import os
-
 import pytest
 
 from src.models.dialogue_model import MockDialogueModel
@@ -9,8 +7,7 @@ from src.models.intent_classifier import Intent
 from src.pipeline.context_manager import ContextManager
 from src.pipeline.dialogue_pipeline import DialoguePipeline, DialogueResponse
 from src.pipeline.prompt_templates import PromptBuilder
-from src.rag.retriever import LoreChunk, LoreRetriever
-
+from src.rag.retriever import LoreChunk
 
 # ─── Mock Retriever ─────────────────────────────────────────────
 
@@ -103,9 +100,7 @@ class TestDialoguePipeline:
             session_id="history-test",
         )
 
-        session = pipeline.context_manager.get_or_create_session(
-            "history-test", "blacksmith"
-        )
+        session = pipeline.context_manager.get_or_create_session("history-test", "blacksmith")
         assert len(session.history) == 4  # 2 player + 2 npc messages
 
     def test_different_characters_respond_differently(self, pipeline: DialoguePipeline) -> None:

@@ -1,10 +1,6 @@
 """Tests for application configuration."""
 
-from pathlib import Path
-
-import yaml
-
-from src.utils.config import AppConfig, ModelConfig, RAGConfig, APIConfig
+from src.utils.config import APIConfig, AppConfig, ModelConfig, RAGConfig
 
 
 class TestModelConfig:

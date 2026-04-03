@@ -18,7 +18,6 @@ Metrics:
 from __future__ import annotations
 
 import re
-import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -61,8 +60,7 @@ class EvalReport:
             "overall_pass": self.overall_pass,
             "total_examples": self.total_examples,
             "metrics": {
-                m.name: {"score": round(m.score, 4), "passed": m.passed}
-                for m in self.metrics
+                m.name: {"score": round(m.score, 4), "passed": m.passed} for m in self.metrics
             },
         }
 
@@ -287,7 +285,7 @@ def grounding_rate(
         )
 
     grounded_count = 0
-    for response, chunks in zip(responses, lore_chunks):
+    for response, chunks in zip(responses, lore_chunks, strict=False):
         if _is_grounded(response, chunks):
             grounded_count += 1
 
@@ -334,7 +332,7 @@ def lore_accuracy(
         )
 
     max_similarities = []
-    for response, chunks in zip(responses, lore_chunks):
+    for response, chunks in zip(responses, lore_chunks, strict=False):
         if not chunks:
             continue
         resp_emb = np.array(embed_fn(response))
@@ -389,7 +387,7 @@ def bert_score_f1(
         )
 
     scores = []
-    for resp, ref in zip(responses, references):
+    for resp, ref in zip(responses, references, strict=False):
         resp_emb = np.array(embed_fn(resp))
         ref_emb = np.array(embed_fn(ref))
         sim = float(np.dot(resp_emb, ref_emb))
@@ -446,7 +444,7 @@ def run_evaluation(
     # Group responses by character for consistency scoring
     if embed_fn:
         char_groups: dict[str, list[str]] = {}
-        for resp, cid in zip(responses, character_ids):
+        for resp, cid in zip(responses, character_ids, strict=False):
             char_groups.setdefault(cid, []).append(resp)
 
         consistency_scores = []
@@ -462,9 +460,16 @@ def run_evaluation(
                 score=avg_consistency,
                 threshold=0.65,
                 passed=avg_consistency >= 0.65,
-                details={"per_character": {
-                    cid: round(s, 4) for cid, s in zip(char_groups.keys(), consistency_scores)
-                }},
+                details={
+                    "per_character": {
+                        cid: round(s, 4)
+                        for cid, s in zip(
+                            char_groups.keys(),
+                            consistency_scores,
+                            strict=False,
+                        )
+                    }
+                },
             )
         )
 
@@ -494,7 +499,7 @@ def run_evaluation(
         metrics=metrics,
         overall_pass=overall_pass,
         total_examples=len(responses),
-        timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        timestamp=datetime.datetime.now(datetime.UTC).isoformat(),
     )
 
     logger.info("evaluation_complete", **report.summary())
@@ -546,10 +551,10 @@ def _simple_bleu(hypothesis: list[str], references: list[list[str]]) -> float:
     unigram_precision = unigram_matches / len(hypothesis) if hypothesis else 0.0
 
     # Bigram precision
-    hyp_bigrams = list(zip(hypothesis[:-1], hypothesis[1:]))
+    hyp_bigrams = list(zip(hypothesis[:-1], hypothesis[1:], strict=False))
     ref_bigrams: set[tuple[str, str]] = set()
     for ref in references:
-        ref_bigrams.update(zip(ref[:-1], ref[1:]))
+        ref_bigrams.update(zip(ref[:-1], ref[1:], strict=False))
 
     bigram_matches = sum(1 for b in hyp_bigrams if b in ref_bigrams)
     bigram_precision = bigram_matches / len(hyp_bigrams) if hyp_bigrams else 0.0

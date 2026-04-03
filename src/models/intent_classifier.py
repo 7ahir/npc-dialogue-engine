@@ -6,7 +6,7 @@ trigger animations, update quest state, or adjust NPC behavior before
 the full dialogue response is generated.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 from transformers import pipeline as hf_pipeline
 
@@ -18,16 +18,16 @@ logger = get_logger(__name__)
 _DEFAULT_CLASSIFIER_MODEL = "typeform/distilbert-base-uncased-mnli"
 
 
-class Intent(str, Enum):
+class Intent(StrEnum):
     """Player input intent categories."""
 
-    QUEST = "quest"           # Asking about or accepting quests
-    TRADE = "trade"           # Buying, selling, bartering
-    LORE = "lore"             # Asking about world history, magic, events
-    COMBAT = "combat"         # Combat-related dialogue, threats
-    SOCIAL = "social"         # Greetings, small talk, relationship building
-    HOSTILE = "hostile"       # Insults, aggression, provocation
-    OFF_TOPIC = "off_topic"   # Meta-gaming, out-of-character, nonsense
+    QUEST = "quest"  # Asking about or accepting quests
+    TRADE = "trade"  # Buying, selling, bartering
+    LORE = "lore"  # Asking about world history, magic, events
+    COMBAT = "combat"  # Combat-related dialogue, threats
+    SOCIAL = "social"  # Greetings, small talk, relationship building
+    HOSTILE = "hostile"  # Insults, aggression, provocation
+    OFF_TOPIC = "off_topic"  # Meta-gaming, out-of-character, nonsense
 
 
 # Labels used for zero-shot classification — phrased as natural language
@@ -35,7 +35,9 @@ class Intent(str, Enum):
 _INTENT_HYPOTHESES = {
     Intent.QUEST: "This is about a quest, mission, task, or adventure request.",
     Intent.TRADE: "This is about buying, selling, trading, or pricing items.",
-    Intent.LORE: "This is a question about history, ancient knowledge, legends, lore, or world events.",
+    Intent.LORE: (
+        "This is a question about history, ancient knowledge, legends, lore, or world events."
+    ),
     Intent.COMBAT: "This is about fighting, weapons, combat, or threats.",
     Intent.SOCIAL: "This is casual conversation, a greeting, or small talk.",
     Intent.HOSTILE: "This is aggressive, insulting, or hostile.",
@@ -84,14 +86,10 @@ class IntentClassifier:
         result = self.classifier(text, candidate_labels, multi_label=False)
 
         # Map hypothesis labels back to Intent enum values
-        intent_list = list(_INTENT_HYPOTHESES.keys())
-        label_to_intent = {
-            label: intent
-            for intent, label in _INTENT_HYPOTHESES.items()
-        }
+        label_to_intent = {label: intent for intent, label in _INTENT_HYPOTHESES.items()}
 
         all_scores: dict[str, float] = {}
-        for label, score in zip(result["labels"], result["scores"]):
+        for label, score in zip(result["labels"], result["scores"], strict=False):
             intent = label_to_intent[label]
             all_scores[intent.value] = round(score, 4)
 
@@ -109,9 +107,7 @@ class IntentClassifier:
 
         return top_intent, top_confidence, all_scores
 
-    def classify_with_sentiment(
-        self, text: str
-    ) -> tuple[Intent, float, dict[str, float], float]:
+    def classify_with_sentiment(self, text: str) -> tuple[Intent, float, dict[str, float], float]:
         """Classify intent and estimate sentiment from intent scores.
 
         Sentiment is derived from intent scores rather than a separate model,

@@ -8,10 +8,10 @@ stages that the game engine can reason about independently.
 
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.models.dialogue_model import DialogueModel, create_dialogue_model
-from src.models.intent_classifier import IntentClassifier, Intent
+from src.models.intent_classifier import Intent, IntentClassifier
 from src.pipeline.context_manager import ContextManager
 from src.pipeline.prompt_templates import PromptBuilder
 from src.rag.retriever import LoreRetriever
@@ -95,9 +95,7 @@ class DialoguePipeline:
         lore_context, lore_refs = self._retrieve_safe(player_message)
 
         # 4. Conversation history
-        history = session.format_history(
-            max_turns=self.config.api.max_session_history
-        )
+        history = session.format_history(max_turns=self.config.api.max_session_history)
 
         # 5. Prompt assembly
         messages = self.prompt_builder.build_chat_messages(
@@ -153,9 +151,7 @@ class DialoguePipeline:
         # Pre-generation stages (same as process)
         session = self.context_manager.get_or_create_session(session_id, character_id)
         lore_context, _ = self._retrieve_safe(player_message)
-        history = session.format_history(
-            max_turns=self.config.api.max_session_history
-        )
+        history = session.format_history(max_turns=self.config.api.max_session_history)
 
         messages = self.prompt_builder.build_chat_messages(
             character_id=character_id,
@@ -175,13 +171,11 @@ class DialoguePipeline:
         session.add_message("player", player_message)
         session.add_message("npc", npc_response)
 
-    def _classify_safe(
-        self, text: str
-    ) -> tuple[str, float, dict[str, float], float]:
+    def _classify_safe(self, text: str) -> tuple[str, float, dict[str, float], float]:
         """Classify intent with graceful fallback on error."""
         try:
-            intent, confidence, all_scores, sentiment = (
-                self.classifier.classify_with_sentiment(text)
+            intent, confidence, all_scores, sentiment = self.classifier.classify_with_sentiment(
+                text
             )
             return intent.value, confidence, all_scores, sentiment
         except Exception as e:
@@ -199,9 +193,7 @@ class DialoguePipeline:
             logger.warning("lore_retrieval_failed", error=str(e))
             return "", []
 
-    def _generate_with_tot(
-        self, messages: list[dict[str, str]], character_id: str
-    ) -> str:
+    def _generate_with_tot(self, messages: list[dict[str, str]], character_id: str) -> str:
         """Tree of Thoughts: generate multiple candidates, select best.
 
         Generates 3 responses with different tones, scores each against

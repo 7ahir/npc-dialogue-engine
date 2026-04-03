@@ -12,7 +12,7 @@ concerns cleanly:
 from pathlib import Path
 
 import yaml
-from jinja2 import Environment, BaseLoader
+from jinja2 import BaseLoader, Environment
 
 from src.utils.config import get_config
 from src.utils.logging_config import get_logger

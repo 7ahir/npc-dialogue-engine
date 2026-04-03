@@ -13,7 +13,6 @@ Requires: pip install ".[ml,gpu,train]"
 """
 
 import argparse
-import sys
 from pathlib import Path
 
 import yaml
@@ -40,8 +39,8 @@ def train(
     )
     from trl import SFTTrainer
 
-    from src.training.dataset import load_dialogue_dataset, create_train_val_split
-    from src.utils.logging_config import setup_logging, get_logger
+    from src.training.dataset import create_train_val_split, load_dialogue_dataset
+    from src.utils.logging_config import get_logger, setup_logging
 
     setup_logging()
     logger = get_logger(__name__)

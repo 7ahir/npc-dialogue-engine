@@ -1,23 +1,21 @@
 """Tests for evaluation metrics."""
 
 import numpy as np
-import pytest
 
 from src.evaluation.metrics import (
-    MetricResult,
     EvalReport,
-    character_consistency,
-    response_diversity,
-    latency_percentile,
-    safety_rate,
-    grounding_rate,
-    lore_accuracy,
-    bert_score_f1,
-    run_evaluation,
-    _simple_bleu,
+    MetricResult,
     _is_grounded,
+    _simple_bleu,
+    bert_score_f1,
+    character_consistency,
+    grounding_rate,
+    latency_percentile,
+    lore_accuracy,
+    response_diversity,
+    run_evaluation,
+    safety_rate,
 )
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────
 

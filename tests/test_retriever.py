@@ -1,15 +1,13 @@
 """Tests for the RAG pipeline: embeddings, indexer, and retriever."""
 
-import tempfile
 from pathlib import Path
 
-import pytest
 import chromadb
+import pytest
 
 from src.rag.embeddings import EmbeddingService
 from src.rag.lore_indexer import LoreIndexer, _chunk_text
-from src.rag.retriever import LoreRetriever, LoreChunk
-
+from src.rag.retriever import LoreRetriever
 
 # ─── Chunking Tests ─────────────────────────────────────────────
 
@@ -116,9 +114,7 @@ class TestLoreIndexerAndRetriever:
     def test_indexing_creates_chunks(self, indexed_collection: int) -> None:
         assert indexed_collection > 0
 
-    def test_indexing_processes_all_files(
-        self, indexed_collection: int, lore_dir: Path
-    ) -> None:
+    def test_indexing_processes_all_files(self, indexed_collection: int, lore_dir: Path) -> None:
         # We have 5 lore files, each should produce at least 1 chunk
         assert indexed_collection >= 5
 

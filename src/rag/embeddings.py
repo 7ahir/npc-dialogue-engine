@@ -1,6 +1,5 @@
 """SentenceBERT embedding service for semantic similarity."""
 
-import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from src.utils.config import get_config
