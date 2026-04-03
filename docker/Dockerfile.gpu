@@ -1,0 +1,31 @@
+# ─── GPU Runtime Image ──────────────────────────────────────────
+# For inference with real LLM (Qwen 2.5-3B + LoRA + 4-bit)
+# Requires NVIDIA GPU with ≥6GB VRAM
+FROM nvidia/cuda:12.1-runtime-ubuntu22.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3-pip && \
+    rm -rf /var/lib/apt/lists/* && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3
+
+WORKDIR /app
+COPY pyproject.toml .
+RUN pip install --no-cache-dir ".[ml,gpu]"
+
+COPY src/ /app/src/
+COPY configs/ /app/configs/
+COPY data/lore/ /app/data/lore/
+COPY scripts/ /app/scripts/
+
+RUN mkdir -p /app/models /app/chroma_data
+
+RUN useradd --create-home --shell /bin/bash npc && \
+    chown -R npc:npc /app
+USER npc
+
+ENV DIALOGUE_MODEL_MODE=transformers \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

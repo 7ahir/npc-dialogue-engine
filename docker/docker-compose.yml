@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  # ─── NPC Dialogue API ──────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../models:/app/models       # Mount fine-tuned model weights
+      - chroma_data:/app/chroma_data
+    environment:
+      - DIALOGUE_MODEL_MODE=mock    # Switch to "transformers" with GPU
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - RAG_CHROMA_PERSIST_DIR=/app/chroma_data
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import httpx; httpx.get('http://localhost:8000/api/v1/health').raise_for_status()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─── ChromaDB Vector Store ─────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:0.5.23
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ─── Prometheus Monitoring ─────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+
+  # ─── Grafana Dashboards ────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=npc-engine
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+volumes:
+  chroma_data:
+  prometheus_data:
+  grafana_data:
