@@ -29,11 +29,12 @@ dependencies = [
 [project.optional-dependencies]
 ml = [
     "torch>=2.1.0",
-    "transformers>=4.40.0",
+    "transformers>=4.40.0,<5.0.0",
     "peft>=0.10.0",
     "trl>=0.8.0",
-    "sentence-transformers>=2.7.0",
+    "sentence-transformers>=2.7.0,<4.0.0",
     "chromadb>=0.5.0",
+    "numpy<2",
 ]
 gpu = [
     "bitsandbytes>=0.42.0",

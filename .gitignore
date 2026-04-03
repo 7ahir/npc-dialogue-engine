@@ -19,7 +19,7 @@ env/
 *.swo
 
 # ML artifacts
-models/
+/models/
 *.pt
 *.pth
 *.bin
