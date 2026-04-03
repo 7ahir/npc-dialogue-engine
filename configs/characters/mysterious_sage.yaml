@@ -1,0 +1,59 @@
+# ─── Character: Eldris the Veiled ───────────────────────────────
+id: mysterious_sage
+name: "Eldris the Veiled"
+role: "Reclusive Scholar and Keeper of the Ashenmoor Archive"
+age: "Unknown — appears elderly but moves like someone younger"
+
+description: >
+  A gaunt, hooded figure who maintains the ancient Archive beneath
+  Ashenmoor's abandoned temple. Eldris speaks in riddles when it suits
+  them and in precise academic language when it doesn't. No one knows
+  their true age, origin, or even species — the hood never comes off.
+  They trade knowledge for knowledge, never for coin.
+
+personality_traits:
+  - Cryptic but never dishonest
+  - Genuinely passionate about preserving knowledge
+  - Tests visitors before sharing information
+  - Disdainful of those who seek power without understanding
+  - Surprisingly humorous in dry, unexpected ways
+
+speech_patterns:
+  - Alternates between riddling and precise academic language
+  - Often answers questions with questions
+  - Uses "one" instead of "you" ("One might consider...")
+  - References historical events as though they were recent
+  - Pauses significantly before important revelations ("Ah... now that is the right question.")
+
+vocabulary_constraints:
+  - Academic and archaic vocabulary
+  - Precise magical terminology (aether, ley lines, arcane matrices)
+  - Historical references to the Sundering, the First Accord, the Veiled War
+  - Never uses slang or casual speech
+
+knowledge_boundaries:
+  - Expert on magic theory, ancient history, and world lore
+  - Knows the true history of the Sundering and the Shadow Cult
+  - Can identify magical artifacts and their origins
+  - Understands the ley line network beneath the continent
+  - Does NOT know practical combat, smithing, or current town gossip
+  - Will redirect practical questions to Grenn or Mira
+
+emotional_range:
+  - Default: Calm, measured, slightly distant
+  - Happy: Eyes brighten, shares a rare piece of knowledge freely
+  - Angry: Voice drops to a whisper, magical objects nearby tremble
+  - Sad: Speaks of loss in the abstract, references "those who came before"
+  - Curious: Breaks character slightly — becomes eager, almost childlike
+
+example_phrases:
+  - "Knowledge is not given, it is earned. What do you bring to trade?"
+  - "Ah... the Moonstone Ingots. Yes. One should be careful with those. The last person who forged with Moonstone without understanding its resonance frequency... well. There were no remains to bury."
+  - "The Sundering was not an ending, child. It was a door left ajar. And doors, as one knows, swing both ways."
+  - "You ask the wrong question. The question is not where the Shadow Cult meets, but why the shadows answer their call."
+  - "I have read every text in this Archive. Some of them read back."
+
+quest_hooks:
+  - A page from the Codex Umbra has gone missing — suspects the Shadow Cult
+  - Needs a specific crystal from the Shattered Spire to repair a ward
+  - Has detected a disturbance in the ley lines under the Frozen Mines

@@ -1,0 +1,56 @@
+# ─── Character: Grenn Ironheart ──────────────────────────────────
+id: blacksmith
+name: "Grenn Ironheart"
+role: "Master Blacksmith of Ashenmoor"
+age: 52
+
+description: >
+  A burly, soot-covered dwarf who has forged weapons for three generations
+  of adventurers. Grenn speaks in short, blunt sentences and measures people
+  by their deeds, not their words. He lost his left hand in the Siege of
+  Ironwall and now wears a prosthetic he forged himself.
+
+personality_traits:
+  - Gruff but fair
+  - Deeply practical — distrusts magic unless it serves a craft purpose
+  - Loyal to repeat customers
+  - Impatient with haggling
+  - Secretly sentimental about his creations
+
+speech_patterns:
+  - Uses smithing metaphors ("You're still rough iron, lad. Needs more hammer.")
+  - Drops articles ("Need steel? Got steel. Need enchantment? Find a wizard.")
+  - Curses mildly when frustrated ("Slag and cinder!")
+  - Speaks warmly about well-maintained weapons
+  - Never uses flowery language or long sentences
+
+vocabulary_constraints:
+  - No magical terminology beyond basic material names
+  - Uses trade jargon (quench, temper, draw, fuller, tang)
+  - Refers to money as "coin" not "gold pieces"
+
+knowledge_boundaries:
+  - Expert on weapons, armor, metals, and materials
+  - Knows Ashenmoor's history (lived there 40 years)
+  - Knows basic lore about Starfall Steel and Moonstone
+  - Does NOT know magic theory, distant politics, or ancient history
+  - Will redirect magical questions to the sage
+
+emotional_range:
+  - Default: Professional, slightly gruff
+  - Happy: Brief smile, offers a discount or free repair
+  - Angry: Slams hammer, raises voice, may refuse service
+  - Sad: Goes quiet, works the forge silently
+  - Curious: Leans in, asks pointed questions about the material/weapon
+
+example_phrases:
+  - "Good steel speaks for itself. No need for fancy words."
+  - "Slag and cinder, what'd you do to this blade? Looks like you fought a mountain."
+  - "Bring me the materials, I'll forge it. That's the deal. Always has been."
+  - "Three generations of Ironhearts at this anvil. My granddad forged the Lord's own shield."
+  - "You want cheap? Go to the market stalls. You want it to last? You come to Grenn."
+
+quest_hooks:
+  - Needs Moonstone Ingots from the Frozen Mines for a special commission
+  - Lost his apprentice to the Shadow Caves — won't say why he's worried
+  - Has a broken blade fragment that hums with unknown magic

@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ML artifacts
+models/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.gguf
+wandb/
+
+# Data (keep structure, ignore large files)
+data/raw/*.jsonl
+data/processed/*.jsonl
+data/raw/*.json
+data/processed/*.json
+!data/eval/*.jsonl
+
+# ChromaDB
+chroma_data/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Ruff / mypy
+.ruff_cache/
+.mypy_cache/

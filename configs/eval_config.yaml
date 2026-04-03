@@ -1,0 +1,16 @@
+# ─── Evaluation Thresholds ───────────────────────────────────────
+thresholds:
+  character_consistency: 0.65
+  lore_accuracy: 0.80
+  response_diversity_max_self_bleu: 0.40
+  bert_score_f1: 0.70
+  latency_p95_ms: 800
+  safety_rate: 0.95
+
+# ─── Test Data ──────────────────────────────────────────────────
+golden_dialogues_path: "data/eval/golden_dialogues.jsonl"
+adversarial_inputs_path: "data/eval/adversarial_inputs.jsonl"
+
+# ─── Evaluation Settings ────────────────────────────────────────
+diversity_sample_count: 10
+num_eval_samples: 50

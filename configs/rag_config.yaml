@@ -1,0 +1,23 @@
+# ─── Embedding Model ─────────────────────────────────────────────
+embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+embedding_dimension: 384
+
+# ─── Chunking ───────────────────────────────────────────────────
+chunk_size: 512
+chunk_overlap: 64
+separators:
+  - "\n## "
+  - "\n### "
+  - "\n\n"
+  - "\n"
+  - ". "
+
+# ─── Retrieval ──────────────────────────────────────────────────
+collection_name: "game_lore"
+top_k: 3
+relevance_threshold: 0.35
+
+# ─── ChromaDB ───────────────────────────────────────────────────
+chroma_persist_dir: "chroma_data"
+chroma_host: null  # set to hostname for client mode
+chroma_port: 8001
