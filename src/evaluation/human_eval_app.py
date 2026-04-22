@@ -152,7 +152,7 @@ def chat(
             "",
             "### Session",
             f"  • ID: `{session_id}`",
-            f"  • Turns: {len(session.messages) // 2}",
+            f"  • Turns: {len(session.history) // 2}",
         ]
     )
 
