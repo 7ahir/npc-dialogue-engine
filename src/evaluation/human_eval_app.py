@@ -19,6 +19,8 @@ from src.models.intent_classifier import IntentClassifier
 from src.pipeline.context_manager import ContextManager
 from src.pipeline.dialogue_pipeline import DialoguePipeline, DialogueResponse
 from src.pipeline.prompt_templates import CharacterLoader, PromptBuilder
+from src.rag.embeddings import EmbeddingService
+from src.rag.lore_indexer import LoreIndexer
 from src.rag.retriever import LoreRetriever
 from src.utils.config import get_config
 from src.utils.logging_config import get_logger, setup_logging
@@ -35,9 +37,24 @@ def _build_pipeline() -> tuple[DialoguePipeline, ContextManager, CharacterLoader
     prompt_builder = PromptBuilder()
     character_loader = CharacterLoader()
 
-    # Try to initialize retriever; graceful fallback if ChromaDB not available
+    # Try to initialize retriever; graceful fallback if ChromaDB not available.
+    # Auto-index lore on first boot so fresh deployments (e.g. HF Spaces) get
+    # RAG working without requiring a manual `npc-index-lore` step.
     try:
         retriever = LoreRetriever()
+        try:
+            indexer = LoreIndexer(embedding_service=EmbeddingService())
+            # index_directory is idempotent — it deletes + re-adds if the
+            # collection already has docs, so calling on every boot is safe
+            # but wasteful. Skip if collection already populated.
+            existing = retriever._client.get_or_create_collection(  # noqa: SLF001
+                name=config.rag.collection_name
+            ).count()
+            if existing == 0:
+                logger.info("auto_indexing_lore_on_boot")
+                indexer.index_directory()
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.warning("auto_index_failed", error=str(exc))
     except Exception:
         logger.warning("retriever_init_failed", msg="Running without RAG")
         retriever = None
@@ -293,7 +310,17 @@ def create_demo() -> gr.Blocks:
         theme=gr.themes.Soft(),
         css="""
         .debug-panel { font-size: 0.85em; }
-        .character-info { background: #f0f4f8; padding: 12px; border-radius: 8px; }
+        .character-info {
+            background: #f0f4f8;
+            padding: 12px;
+            border-radius: 8px;
+            color: #1a1a1a;
+        }
+        /* Force readable text inside the card across light + dark themes */
+        .character-info p,
+        .character-info li,
+        .character-info strong,
+        .character-info em { color: #1a1a1a !important; }
         """,
     ) as demo:
         gr.Markdown(
