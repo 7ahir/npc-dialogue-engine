@@ -19,5 +19,3 @@ numpy<2
 
 # Demo UI
 gradio>=4.44.0
-# Python 3.13 dropped stdlib `audioop` (PEP 594); pydub (gradio dep) needs it.
-audioop-lts; python_version >= "3.13"
