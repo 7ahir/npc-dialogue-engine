@@ -50,6 +50,19 @@ jobs:
       - name: Test Docker health
         run: |
           docker run -d --name npc-test -p 8000:8000 -e DIALOGUE_MODEL_MODE=mock npc-dialogue-engine:test
-          sleep 10
-          curl -f http://localhost:8000/api/v1/health
-          docker stop npc-test
+          # Poll the health endpoint for up to 60s instead of a hard-coded sleep —
+          # ML imports (transformers, sentence-transformers) add cold-start time.
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8000/api/v1/health >/dev/null; then
+              echo "API ready after ${i}×2s"
+              curl -s http://localhost:8000/api/v1/health | python3 -m json.tool
+              docker stop npc-test
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::API did not become healthy within 60s"
+          echo "--- container logs ---"
+          docker logs npc-test || true
+          docker stop npc-test || true
+          exit 1

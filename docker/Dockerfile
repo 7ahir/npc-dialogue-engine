@@ -4,7 +4,13 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 COPY pyproject.toml .
-RUN pip install --no-cache-dir --prefix=/install .
+# Install ML extras so transformers / sentence-transformers / chromadb are
+# present — the API imports them at module load time (LoreRetriever,
+# IntentClassifier) and would ImportError on startup otherwise.
+# Use CPU-only torch wheels to keep the image ~2 GB lighter than the default.
+RUN pip install --no-cache-dir --prefix=/install \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+        ".[ml]"
 
 # ─── Stage 2: Runtime ───────────────────────────────────────────
 # Minimal runtime image — no build tools, no cache
