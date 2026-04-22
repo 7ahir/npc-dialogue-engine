@@ -16,6 +16,7 @@ from src.pipeline.prompt_templates import PromptBuilder
 from src.rag.retriever import LoreRetriever
 from src.utils.config import get_config
 from src.utils.logging_config import get_logger, setup_logging
+from src.utils.tracing import get_trace_store
 
 logger = get_logger(__name__)
 
@@ -41,6 +42,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     retriever = LoreRetriever()
     classifier = IntentClassifier()
 
+    trace_store = get_trace_store()
     pipeline = DialoguePipeline(
         model=model,
         retriever=retriever,
@@ -48,12 +50,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         prompt_builder=prompt_builder,
         context_manager=context_manager,
         config=config,
+        trace_store=trace_store,
     )
 
     # Store in app state for dependency injection via routes
     app.state.pipeline = pipeline
     app.state.context_manager = context_manager
     app.state.character_loader = prompt_builder.character_loader
+    app.state.trace_store = trace_store
 
     logger.info(
         "app_started",

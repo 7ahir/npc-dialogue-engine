@@ -17,6 +17,7 @@ from src.pipeline.prompt_templates import PromptBuilder
 from src.rag.retriever import LoreRetriever
 from src.utils.config import AppConfig, get_config
 from src.utils.logging_config import get_logger
+from src.utils.tracing import TraceRecorder, TraceStore, get_trace_store
 
 logger = get_logger(__name__)
 
@@ -32,6 +33,7 @@ class DialogueResponse:
     lore_refs: list[str]
     latency_ms: float
     model_version: str
+    trace_id: str | None = None
 
 
 class DialoguePipeline:
@@ -57,6 +59,7 @@ class DialoguePipeline:
         prompt_builder: PromptBuilder | None = None,
         context_manager: ContextManager | None = None,
         config: AppConfig | None = None,
+        trace_store: TraceStore | None = None,
     ) -> None:
         self.config = config or get_config()
         self.model = model or create_dialogue_model(self.config.model)
@@ -64,6 +67,9 @@ class DialoguePipeline:
         self.classifier = classifier or IntentClassifier()
         self.prompt_builder = prompt_builder or PromptBuilder()
         self.context_manager = context_manager or ContextManager()
+        # Default to the process-wide singleton so the API can read traces
+        # without callers having to plumb a store through.
+        self.trace_store = trace_store if trace_store is not None else get_trace_store()
 
     def process(
         self,
@@ -84,38 +90,58 @@ class DialoguePipeline:
             DialogueResponse with NPC response and metadata.
         """
         start = time.perf_counter()
+        recorder = TraceRecorder()
 
         # 1. Session management
-        session = self.context_manager.get_or_create_session(session_id, character_id)
+        with recorder.span("session"):
+            session = self.context_manager.get_or_create_session(session_id, character_id)
 
         # 2. Intent classification (graceful degradation)
-        intent, confidence, all_scores, sentiment = self._classify_safe(player_message)
+        with recorder.span("intent") as meta:
+            intent, confidence, all_scores, sentiment = self._classify_safe(player_message)
+            meta["label"] = intent
+            meta["confidence"] = confidence
+            meta["sentiment"] = sentiment
 
         # 3. RAG retrieval (graceful degradation)
-        lore_context, lore_refs = self._retrieve_safe(player_message)
+        with recorder.span("retrieval") as meta:
+            lore_context, lore_refs = self._retrieve_safe(player_message)
+            meta["chunks"] = len(lore_refs)
 
         # 4. Conversation history
         history = session.format_history(max_turns=self.config.api.max_session_history)
 
         # 5. Prompt assembly
-        messages = self.prompt_builder.build_chat_messages(
-            character_id=character_id,
-            player_message=player_message,
-            lore_context=lore_context,
-            conversation_history=history,
-        )
+        with recorder.span("prompt"):
+            messages = self.prompt_builder.build_chat_messages(
+                character_id=character_id,
+                player_message=player_message,
+                lore_context=lore_context,
+                conversation_history=history,
+            )
 
         # 6. Generation
-        if use_tot:
-            npc_response = self._generate_with_tot(messages, character_id)
-        else:
-            npc_response = self.model.generate(messages)
+        with recorder.span("generation") as meta:
+            meta["mode"] = "tot" if use_tot else "single"
+            if use_tot:
+                npc_response = self._generate_with_tot(messages, character_id)
+            else:
+                npc_response = self.model.generate(messages)
+            meta["response_chars"] = len(npc_response)
 
         # 7. Update session
         session.add_message("player", player_message)
         session.add_message("npc", npc_response)
 
         latency_ms = (time.perf_counter() - start) * 1000
+        trace = recorder.finish(
+            character_id=character_id,
+            session_id=session_id,
+            intent=intent,
+            use_tot=use_tot,
+            model_version=self.model.model_version,
+        )
+        self.trace_store.add(trace)
 
         logger.info(
             "dialogue_processed",
@@ -125,6 +151,7 @@ class DialoguePipeline:
             sentiment=sentiment,
             lore_refs_count=len(lore_refs),
             latency_ms=round(latency_ms, 1),
+            trace_id=trace.trace_id,
         )
 
         return DialogueResponse(
@@ -135,6 +162,7 @@ class DialoguePipeline:
             lore_refs=lore_refs,
             latency_ms=round(latency_ms, 1),
             model_version=self.model.model_version,
+            trace_id=trace.trace_id,
         )
 
     def process_stream(

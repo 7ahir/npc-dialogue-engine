@@ -15,9 +15,14 @@ from src.api.schemas import (
     DialogueResponseSchema,
     HealthResponse,
     SessionResetResponse,
+    SpanSchema,
+    TraceListEntry,
+    TraceSchema,
+    TraceSummaryResponse,
 )
 from src.pipeline.dialogue_pipeline import DialoguePipeline
 from src.pipeline.prompt_templates import CharacterLoader
+from src.utils.tracing import TraceStore
 
 router = APIRouter(prefix="/api/v1", tags=["dialogue"])
 
@@ -30,6 +35,11 @@ def _get_pipeline(request: Request) -> DialoguePipeline:
 def _get_character_loader(request: Request) -> CharacterLoader:
     """Extract the character loader from app state."""
     return request.app.state.character_loader
+
+
+def _get_trace_store(request: Request) -> TraceStore:
+    """Extract the trace store from app state."""
+    return request.app.state.trace_store
 
 
 # ─── Dialogue Endpoints ────────────────────────────────────────
@@ -71,6 +81,7 @@ async def generate_dialogue(body: DialogueRequest, request: Request) -> Dialogue
         lore_refs=result.lore_refs,
         latency_ms=result.latency_ms,
         model_version=result.model_version,
+        trace_id=result.trace_id,
     )
 
 
@@ -171,4 +182,68 @@ async def metrics() -> Response:
     return Response(
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST,
+    )
+
+
+# ─── Tracing Endpoints ────────────────────────────────────────────
+
+
+@router.get("/traces", response_model=list[TraceListEntry])
+async def list_traces(request: Request, limit: int = 50) -> list[TraceListEntry]:
+    """List recent pipeline traces (most recent first).
+
+    Compact view — use ``GET /traces/{id}`` for the full per-span breakdown.
+    """
+    store = _get_trace_store(request)
+    traces = store.list(limit=max(1, min(limit, 500)))
+    return [
+        TraceListEntry(
+            trace_id=t.trace_id,
+            started_at=t.started_at,
+            total_ms=round(t.total_ms, 3),
+            character_id=t.metadata.get("character_id"),
+            intent=t.metadata.get("intent"),
+            span_count=len(t.spans),
+        )
+        for t in traces
+    ]
+
+
+@router.get("/traces/summary", response_model=TraceSummaryResponse)
+async def trace_summary(request: Request) -> TraceSummaryResponse:
+    """Aggregate latency stats across the trace buffer (p50/p95 per stage).
+
+    Useful sanity check during load testing — answers "where does the time
+    actually go?" without scraping Prometheus.
+    """
+    store = _get_trace_store(request)
+    s = store.summary()
+    return TraceSummaryResponse(
+        count=s["count"],
+        total_ms=s["total_ms"],
+        spans=s["spans"],
+    )
+
+
+@router.get("/traces/{trace_id}", response_model=TraceSchema)
+async def get_trace(trace_id: str, request: Request) -> TraceSchema:
+    """Fetch the full per-span breakdown for a single request."""
+    store = _get_trace_store(request)
+    trace = store.get(trace_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail=f"Trace '{trace_id}' not found.")
+    return TraceSchema(
+        trace_id=trace.trace_id,
+        started_at=trace.started_at,
+        total_ms=round(trace.total_ms, 3),
+        spans=[
+            SpanSchema(
+                name=s.name,
+                start_ms=round(s.start_ms, 3),
+                duration_ms=round(s.duration_ms, 3),
+                metadata=s.metadata,
+            )
+            for s in trace.spans
+        ],
+        metadata=trace.metadata,
     )

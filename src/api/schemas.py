@@ -1,5 +1,6 @@
 """Pydantic request/response models for the NPC Dialogue API."""
 
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -32,6 +33,7 @@ class DialogueResponseSchema(BaseModel):
     lore_refs: list[str]
     latency_ms: float
     model_version: str
+    trace_id: str | None = None
 
 
 class CharacterSummary(BaseModel):
@@ -64,3 +66,44 @@ class SessionResetResponse(BaseModel):
 
     session_id: str
     reset: bool
+
+
+# ─── Tracing ──────────────────────────────────────────────────────
+
+
+class SpanSchema(BaseModel):
+    """A single timed pipeline stage."""
+
+    name: str
+    start_ms: float
+    duration_ms: float
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class TraceSchema(BaseModel):
+    """A completed pipeline trace."""
+
+    trace_id: str
+    started_at: str
+    total_ms: float
+    spans: list[SpanSchema]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class TraceListEntry(BaseModel):
+    """Compact entry returned from list endpoint."""
+
+    trace_id: str
+    started_at: str
+    total_ms: float
+    character_id: str | None = None
+    intent: str | None = None
+    span_count: int
+
+
+class TraceSummaryResponse(BaseModel):
+    """Aggregate p50/p95 latency across recent traces."""
+
+    count: int
+    total_ms: dict[str, float] = Field(default_factory=dict)
+    spans: dict[str, dict[str, float]] = Field(default_factory=dict)
