@@ -136,19 +136,21 @@ make docker-up  # or: docker compose -f docker/docker-compose.yml up -d
 
 ### Training (GPU Required)
 
+After `pip install -e .`, the project exposes four CLI commands. Each is also runnable as a script (`python scripts/<name>.py …`).
+
 ```bash
 # Generate synthetic training data
-python scripts/generate_training_data.py --output data/processed/train.jsonl
+npc-generate-data --output data/processed/train.jsonl
 
-# Index lore documents
-python scripts/index_lore.py
+# Index lore documents into ChromaDB
+npc-index-lore
 
 # Fine-tune with LoRA
 pip install -e ".[ml,gpu,train]"
 python src/training/train_lora.py --data-path data/processed/train.jsonl
 
-# Export merged model
-python scripts/export_model.py --adapter-path models/lora/final
+# Merge adapter into base model for deployment
+npc-export --adapter-path models/lora/final
 ```
 
 ## API Endpoints
@@ -176,7 +178,7 @@ python scripts/export_model.py --adapter-path models/lora/final
 | Grounding Rate | tracked | Response references RAG-retrieved info |
 
 ```bash
-python scripts/run_evaluation.py --output results/eval_report.json
+npc-eval --output results/eval_report.json
 ```
 
 ## Characters

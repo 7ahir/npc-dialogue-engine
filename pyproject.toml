@@ -59,8 +59,14 @@ train = [
     "wandb>=0.17.0",
 ]
 
+[project.scripts]
+npc-eval = "scripts.run_evaluation:main"
+npc-generate-data = "scripts.generate_training_data:main"
+npc-index-lore = "scripts.index_lore:main"
+npc-export = "scripts.export_model:main"
+
 [tool.setuptools.packages.find]
-include = ["src*"]
+include = ["src*", "scripts*"]
 
 [tool.ruff]
 target-version = "py311"
