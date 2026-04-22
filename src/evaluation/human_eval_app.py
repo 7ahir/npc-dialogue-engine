@@ -38,21 +38,21 @@ def _build_pipeline() -> tuple[DialoguePipeline, ContextManager, CharacterLoader
     character_loader = CharacterLoader()
 
     # Try to initialize retriever; graceful fallback if ChromaDB not available.
-    # Auto-index lore on first boot so fresh deployments (e.g. HF Spaces) get
-    # RAG working without requiring a manual `npc-index-lore` step.
+    # Always re-index on boot: ChromaDB's collection metadata (incl. distance
+    # metric) is fixed at creation, so the only safe way to guarantee cosine
+    # space — required for our `similarity = 1 - distance` math — is to
+    # drop and recreate. Cheap on this corpus (~5s on CPU).
     try:
         retriever = LoreRetriever()
         try:
+            try:
+                retriever._client.delete_collection(config.rag.collection_name)  # noqa: SLF001
+                logger.info("dropped_stale_collection")
+            except Exception:
+                pass  # collection didn't exist — fine
+            logger.info("auto_indexing_lore_on_boot")
             indexer = LoreIndexer(embedding_service=EmbeddingService())
-            # index_directory is idempotent — it deletes + re-adds if the
-            # collection already has docs, so calling on every boot is safe
-            # but wasteful. Skip if collection already populated.
-            existing = retriever._client.get_or_create_collection(  # noqa: SLF001
-                name=config.rag.collection_name
-            ).count()
-            if existing == 0:
-                logger.info("auto_indexing_lore_on_boot")
-                indexer.index_directory()
+            indexer.index_directory()
         except Exception as exc:  # pragma: no cover — best-effort
             logger.warning("auto_index_failed", error=str(exc))
     except Exception:
