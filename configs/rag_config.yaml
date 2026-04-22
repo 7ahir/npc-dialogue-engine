@@ -15,7 +15,7 @@ separators:
 # ─── Retrieval ──────────────────────────────────────────────────
 collection_name: "game_lore"
 top_k: 3
-relevance_threshold: 0.35
+relevance_threshold: 0.2
 
 # ─── ChromaDB ───────────────────────────────────────────────────
 chroma_persist_dir: "chroma_data"

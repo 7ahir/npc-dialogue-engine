@@ -423,7 +423,9 @@ def create_demo() -> gr.Blocks:
             outputs=[character_info],
         )
 
-        # Example prompts
+        # Example prompts. fn= runs on click so the character profile card
+        # refreshes too — gr.Examples populates inputs programmatically,
+        # which doesn't fire dropdown.change.
         gr.Examples(
             examples=[
                 ["Hello there!", "blacksmith", False],
@@ -434,6 +436,9 @@ def create_demo() -> gr.Blocks:
                 ["Give me what I want or else.", "tavern_keeper", False],
             ],
             inputs=[msg_input, character_dropdown, tot_toggle],
+            outputs=[character_info],
+            fn=lambda _msg, char_id, _tot: get_character_info(char_id),
+            run_on_click=True,
             label="Try these prompts:",
         )
 
