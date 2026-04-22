@@ -168,6 +168,121 @@ def reset_session(session_id: str) -> tuple[list, str, str]:
     return [], "", ""
 
 
+# ─── Trace Inspector ──────────────────────────────────────────────
+
+
+def get_trace_summary_md() -> str:
+    """Render the aggregate p50/p95 summary as a Markdown block."""
+    summary = pipeline.trace_store.summary()
+    if summary["count"] == 0:
+        return "_No traces recorded yet — send a message in the **Chat** tab._"
+
+    total = summary["total_ms"]
+    lines = [
+        f"### Aggregate latency — last {summary['count']} request(s)",
+        "",
+        f"**Total**: p50 `{total['p50']}ms` · p95 `{total['p95']}ms` · max `{total['max']}ms`",
+        "",
+        "**Per-stage breakdown:**",
+        "",
+        "| Stage | count | p50 (ms) | p95 (ms) | max (ms) |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for name, stats in summary["spans"].items():
+        lines.append(
+            f"| `{name}` | {stats['count']} | {stats['p50']} | {stats['p95']} | {stats['max']} |"
+        )
+    return "\n".join(lines)
+
+
+def get_recent_traces_table() -> list[list]:
+    """Return rows for the recent-traces dataframe (most recent first)."""
+    traces = pipeline.trace_store.list(limit=20)
+    return [
+        [
+            t.trace_id,
+            t.started_at.split("T")[1][:8] if "T" in t.started_at else t.started_at,
+            t.metadata.get("character_id", "—"),
+            t.metadata.get("intent", "—"),
+            round(t.total_ms, 1),
+            len(t.spans),
+        ]
+        for t in traces
+    ]
+
+
+def render_trace_detail(trace_id: str) -> str:
+    """Render a single trace's per-span breakdown as Markdown."""
+    if not trace_id or not trace_id.strip():
+        return "_Enter a trace ID above (or click a row in the table) to see its breakdown._"
+
+    trace = pipeline.trace_store.get(trace_id.strip())
+    if trace is None:
+        return f"⚠️ Trace `{trace_id}` not found — it may have been evicted from the buffer."
+
+    lines = [
+        f"### Trace `{trace.trace_id}`",
+        "",
+        f"**Started:** `{trace.started_at}`  ",
+        f"**Total:** `{round(trace.total_ms, 1)}ms`  ",
+        f"**Spans:** {len(trace.spans)}",
+        "",
+        "**Request metadata:**",
+        "",
+        "```json",
+        _format_metadata(trace.metadata),
+        "```",
+        "",
+        "**Spans:**",
+        "",
+        "| # | Stage | Start (ms) | Duration (ms) | Metadata |",
+        "|---:|---|---:|---:|---|",
+    ]
+    for i, span in enumerate(trace.spans, 1):
+        meta_str = ", ".join(f"`{k}={v}`" for k, v in span.metadata.items()) or "—"
+        lines.append(
+            f"| {i} | `{span.name}` | {round(span.start_ms, 1)} | "
+            f"{round(span.duration_ms, 1)} | {meta_str} |"
+        )
+    return "\n".join(lines)
+
+
+def _format_metadata(meta: dict) -> str:
+    """Compact JSON-ish formatting for the metadata block."""
+    if not meta:
+        return "{}"
+    pairs = [f'  "{k}": {_json_value(v)}' for k, v in meta.items()]
+    return "{\n" + ",\n".join(pairs) + "\n}"
+
+
+def _json_value(v) -> str:
+    if isinstance(v, str):
+        return f'"{v}"'
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    return str(v)
+
+
+def refresh_traces() -> tuple[str, list[list]]:
+    """Refresh both the summary panel and the traces table."""
+    return get_trace_summary_md(), get_recent_traces_table()
+
+
+def select_trace_row(evt) -> tuple[str, str]:  # type: ignore[no-untyped-def]
+    """When a row is clicked in the traces table, populate the detail view."""
+    # gradio passes a SelectData event with .index = [row, col] and .value
+    try:
+        # Look up trace_id from the selected row index
+        row_idx = evt.index[0] if isinstance(evt.index, list) else evt.index
+        rows = get_recent_traces_table()
+        if 0 <= row_idx < len(rows):
+            trace_id = rows[row_idx][0]
+            return trace_id, render_trace_detail(trace_id)
+    except Exception:  # noqa: BLE001 — selection event is best-effort UX
+        pass
+    return "", "_Click a row to see its details._"
+
+
 def create_demo() -> gr.Blocks:
     """Create the Gradio demo interface."""
     characters = get_character_choices()
@@ -294,6 +409,72 @@ def create_demo() -> gr.Blocks:
             inputs=[msg_input, character_dropdown, tot_toggle],
             label="Try these prompts:",
         )
+
+        # ─── Trace Inspector ────────────────────────────────────
+        # Per-stage timing for every request. Click a row to drill in.
+        with gr.Accordion("🔬 Trace Inspector — pipeline timings per request", open=False):
+            with gr.Row():
+                refresh_btn = gr.Button("🔄 Refresh", scale=1)
+                gr.Markdown(
+                    "_Each request is a trace. Pick one to see per-stage durations and metadata._",
+                    elem_classes=["debug-panel"],
+                )
+
+            trace_summary_md = gr.Markdown(
+                value=get_trace_summary_md(),
+                elem_classes=["debug-panel"],
+            )
+
+            traces_table = gr.Dataframe(
+                value=get_recent_traces_table(),
+                headers=["trace_id", "time", "character", "intent", "total_ms", "spans"],
+                datatype=["str", "str", "str", "str", "number", "number"],
+                interactive=False,
+                wrap=True,
+                label="Recent traces (most recent first)",
+            )
+
+            with gr.Row():
+                trace_id_input = gr.Textbox(
+                    label="Trace ID",
+                    placeholder="Click a row above, or paste a trace_id",
+                    scale=4,
+                )
+                show_btn = gr.Button("Show details", scale=1)
+
+            trace_detail_md = gr.Markdown(
+                value="_Send a message in the chat above, then refresh._",
+                elem_classes=["debug-panel"],
+            )
+
+            # Refresh both summary + table
+            refresh_btn.click(
+                fn=refresh_traces,
+                outputs=[trace_summary_md, traces_table],
+            )
+
+            # Row click → populate trace ID + render detail
+            traces_table.select(
+                fn=select_trace_row,
+                outputs=[trace_id_input, trace_detail_md],
+            )
+
+            # Manual lookup
+            show_btn.click(
+                fn=render_trace_detail,
+                inputs=[trace_id_input],
+                outputs=[trace_detail_md],
+            )
+
+            # Auto-refresh after every chat message so the table stays current
+            send_btn.click(
+                fn=refresh_traces,
+                outputs=[trace_summary_md, traces_table],
+            )
+            msg_input.submit(
+                fn=refresh_traces,
+                outputs=[trace_summary_md, traces_table],
+            )
 
     return demo
 
