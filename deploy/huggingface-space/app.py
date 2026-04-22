@@ -24,4 +24,11 @@ from src.evaluation.human_eval_app import create_demo  # noqa: E402
 demo = create_demo()
 
 if __name__ == "__main__":
-    demo.launch()
+    # server_name=0.0.0.0 → bind in HF container.
+    # show_api=False → skip gradio_client schema introspection, which trips on
+    # our Pydantic v2 schemas in gradio<5 (TypeError on `additionalProperties: False`).
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        show_api=False,
+    )
