@@ -17,5 +17,6 @@ sentence-transformers>=2.7.0,<4.0.0
 chromadb>=0.5.0
 numpy<2
 
-# Demo UI
-gradio>=4.44.0
+# Demo UI — gradio 5.x ships gradio_client>=1.5 which fixes the
+# pydantic-v2 schema introspection TypeError that broke 4.44.x on this app.
+gradio>=5.9,<6
