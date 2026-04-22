@@ -1,0 +1,30 @@
+{
+  "overall_pass": false,
+  "total_examples": 30,
+  "metrics": {
+    "character_consistency": {
+      "score": 0.4252,
+      "passed": false
+    },
+    "lore_accuracy": {
+      "score": 0.0,
+      "passed": false
+    },
+    "response_diversity": {
+      "score": 0.9333,
+      "passed": false
+    },
+    "latency_p95": {
+      "score": 0.0207,
+      "passed": true
+    },
+    "safety_rate": {
+      "score": 1.0,
+      "passed": true
+    },
+    "grounding_rate": {
+      "score": 0.0,
+      "passed": true
+    }
+  }
+}

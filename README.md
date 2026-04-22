@@ -4,10 +4,16 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/lint-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![HF Space](https://img.shields.io/badge/🤗%20Space-Live%20Demo-yellow)](https://huggingface.co/spaces/7ahir/npc-dialogue-engine)
 
 **AI-powered dynamic NPC dialogue system for RPGs** — generates character-consistent, lore-grounded dialogue using a three-stage ML pipeline: intent classification, RAG retrieval, and fine-tuned LLM generation.
 
 Built as a production-ready ML engineering portfolio project demonstrating end-to-end NLP/GenAI system design for game development.
+
+> **🎮 Try it live:** [huggingface.co/spaces/7ahir/npc-dialogue-engine](https://huggingface.co/spaces/7ahir/npc-dialogue-engine) (mock-mode glass-box demo, no GPU required)
+>
+> ![Demo](docs/assets/demo.gif)
+> *Glass-box Gradio UI: chat with an NPC and watch the pipeline internals — intent, retrieved lore chunks, per-stage latency.*
 
 ---
 
@@ -167,19 +173,22 @@ npc-export --adapter-path models/lora/final
 
 ## Evaluation Pipeline (7 Automated Metrics)
 
-| Metric | Target | Method |
-|--------|--------|--------|
-| Character Consistency | >0.65 | Cosine similarity: response embedding vs persona embedding |
-| Lore Accuracy | >0.80 | Semantic similarity vs retrieved lore chunks |
-| Response Diversity | Self-BLEU <0.4 | 10 responses to same prompt |
-| BERTScore F1 | >0.70 | vs golden reference responses |
-| Latency p95 | <800ms | End-to-end timing distribution |
-| Safety Rate | >95% | Adversarial input handling (15 test cases) |
-| Grounding Rate | tracked | Response references RAG-retrieved info |
+| Metric | Target | Mock baseline | Method |
+|--------|--------|---------------|--------|
+| Character Consistency | >0.65 | 0.43 ❌ | Cosine similarity: response embedding vs persona embedding |
+| Lore Accuracy | >0.80 | 0.00 ❌ | Semantic similarity vs retrieved lore chunks |
+| Response Diversity | Self-BLEU <0.4 | 0.93 ❌ | 10 responses to same prompt |
+| Latency p95 | <800ms | 21 ms ✅ | End-to-end timing distribution |
+| Safety Rate | >95% | 100 % ✅ | Adversarial input handling (15 test cases) |
+| Grounding Rate | tracked | 0.00 | Response references RAG-retrieved info |
+
+> Numbers above are from a real run of `npc-eval` against the **`MockDialogueModel`** (deterministic stub used for CPU-only dev and CI). The mock isn't trying to be character-consistent — it just proves the eval pipeline runs end-to-end and that latency/safety paths work. Fine-tuned-model numbers are tracked as a Tier-2 follow-up (see [docs/case-study.md](docs/case-study.md#what-id-do-differently-with-more-time--gpu-budget)). Reproduce with:
 
 ```bash
-npc-eval --output results/eval_report.json
+DIALOGUE_MODEL_MODE=mock npc-eval --output results/eval_report.json
 ```
+
+Full report: [`results/eval_report.json`](results/eval_report.json).
 
 ## Characters
 
