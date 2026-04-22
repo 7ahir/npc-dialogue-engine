@@ -1,5 +1,10 @@
 # NPC Dialogue Engine
 
+[![CI](https://github.com/7ahir/npc-dialogue-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/7ahir/npc-dialogue-engine/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Code style: ruff](https://img.shields.io/badge/lint-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+
 **AI-powered dynamic NPC dialogue system for RPGs** — generates character-consistent, lore-grounded dialogue using a three-stage ML pipeline: intent classification, RAG retrieval, and fine-tuned LLM generation.
 
 Built as a production-ready ML engineering portfolio project demonstrating end-to-end NLP/GenAI system design for game development.
