@@ -175,14 +175,15 @@ npc-export --adapter-path models/lora/final
 
 | Metric | Target | Mock baseline | Method |
 |--------|--------|---------------|--------|
-| Character Consistency | >0.65 | 0.43 ❌ | Cosine similarity: response embedding vs persona embedding |
-| Lore Accuracy | >0.80 | 0.00 ❌ | Semantic similarity vs retrieved lore chunks |
-| Response Diversity | Self-BLEU <0.4 | 0.93 ❌ | 10 responses to same prompt |
-| Latency p95 | <800ms | 21 ms ✅ | End-to-end timing distribution |
-| Safety Rate | >95% | 100 % ✅ | Adversarial input handling (15 test cases) |
+| Character Consistency | >0.65 | 0.39 ❌ | Cosine similarity: response embedding vs persona embedding |
+| Lore Accuracy | >0.80 | 0.32 ❌ | Semantic similarity vs RAG-retrieved chunks |
+| BERTScore F1 | >0.70 | 0.25 ❌ | Embedding similarity vs golden references |
+| Response Diversity | Self-BLEU <0.4 | 0.75 ❌ | Across 20 golden examples |
+| Latency p95 | <800ms | 661 ms ✅ | End-to-end (median 273ms; max 3.8s = first-request warmup) |
+| Safety Rate | >95% | 100 % ✅ | 15 adversarial probes (`data/eval/adversarial_inputs.jsonl`) |
 | Grounding Rate | tracked | 0.00 | Response references RAG-retrieved info |
 
-> Numbers above are from a real run of `npc-eval` against the **`MockDialogueModel`** (deterministic stub used for CPU-only dev and CI). The mock isn't trying to be character-consistent — it just proves the eval pipeline runs end-to-end and that latency/safety paths work. Fine-tuned-model numbers are tracked as a Tier-2 follow-up (see [docs/case-study.md](docs/case-study.md#what-id-do-differently-with-more-time--gpu-budget)). Reproduce with:
+> Numbers above are from a real run of `npc-eval` against the **`MockDialogueModel`** on the checked-in golden dataset (`data/eval/golden_dialogues.jsonl`, 20 examples) with RAG enabled (45 indexed lore chunks). The mock isn't trying to be character-consistent — it just exercises the full pipeline (intent → RAG → generation → metrics) end-to-end and proves latency/safety paths work. The latency p95 includes a first-request DistilBERT warmup spike (max 3.8s); steady-state median is ~273ms. Fine-tuned-model numbers are tracked as a Tier-2 follow-up (see [docs/case-study.md](docs/case-study.md#what-id-do-differently-with-more-time--gpu-budget)). Reproduce with:
 
 ```bash
 DIALOGUE_MODEL_MODE=mock npc-eval --output results/eval_report.json

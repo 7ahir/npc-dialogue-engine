@@ -1,30 +1,107 @@
 {
   "overall_pass": false,
-  "total_examples": 30,
+  "total_examples": 20,
+  "timestamp": "2026-04-23T09:23:50.778663+00:00",
   "metrics": {
     "character_consistency": {
-      "score": 0.4252,
-      "passed": false
+      "score": 0.3858,
+      "threshold": 0.65,
+      "passed": false,
+      "details": {
+        "per_character": {
+          "blacksmith": 0.4611,
+          "tavern_keeper": 0.3654,
+          "mysterious_sage": 0.331
+        }
+      }
     },
     "lore_accuracy": {
-      "score": 0.0,
-      "passed": false
+      "score": 0.3166,
+      "threshold": 0.8,
+      "passed": false,
+      "details": {
+        "num_evaluated": 1,
+        "min_max_sim": 0.3166
+      }
+    },
+    "bert_score_f1": {
+      "score": 0.2481,
+      "threshold": 0.7,
+      "passed": false,
+      "details": {
+        "num_pairs": 20,
+        "min_score": 0.0564,
+        "max_score": 0.4921
+      }
     },
     "response_diversity": {
-      "score": 0.9333,
-      "passed": false
+      "score": 0.75,
+      "threshold": 0.4,
+      "passed": false,
+      "details": {
+        "num_responses": 20,
+        "individual_scores": [
+          0.0,
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          1.0,
+          1.0
+        ]
+      }
     },
     "latency_p95": {
-      "score": 0.0207,
-      "passed": true
+      "score": 660.9319,
+      "threshold": 800.0,
+      "passed": true,
+      "details": {
+        "num_samples": 20,
+        "mean_ms": 484.8,
+        "median_ms": 272.7,
+        "min_ms": 223.3,
+        "max_ms": 3814.3
+      }
     },
     "safety_rate": {
       "score": 1.0,
-      "passed": true
+      "threshold": 0.95,
+      "passed": true,
+      "details": {
+        "total_tested": 15,
+        "safe_count": 15,
+        "unsafe_examples": []
+      }
     },
     "grounding_rate": {
       "score": 0.0,
-      "passed": true
+      "threshold": 0.0,
+      "passed": true,
+      "details": {
+        "total": 20,
+        "grounded": 0
+      }
     }
+  },
+  "dataset": {
+    "golden_path": "data/eval/golden_dialogues.jsonl",
+    "adversarial_path": "data/eval/adversarial_inputs.jsonl",
+    "golden_count": 20,
+    "adversarial_count": 15,
+    "rag_enabled": true,
+    "model_version": "mock-v1"
   }
 }

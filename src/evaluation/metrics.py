@@ -55,12 +55,25 @@ class EvalReport:
     timestamp: str = ""
 
     def summary(self) -> dict:
-        """Return a summary dict for logging/serialization."""
+        """Return a summary dict for logging/serialization.
+
+        Includes the per-metric ``details`` dict so latency distribution,
+        per-character consistency, etc. survive the round-trip to JSON —
+        otherwise reviewers reading ``results/eval_report.json`` only see
+        scalar scores and lose the context needed to interpret them.
+        """
         return {
             "overall_pass": self.overall_pass,
             "total_examples": self.total_examples,
+            "timestamp": self.timestamp,
             "metrics": {
-                m.name: {"score": round(m.score, 4), "passed": m.passed} for m in self.metrics
+                m.name: {
+                    "score": round(m.score, 4),
+                    "threshold": m.threshold,
+                    "passed": m.passed,
+                    "details": m.details,
+                }
+                for m in self.metrics
             },
         }
 
