@@ -34,7 +34,7 @@ The things a reviewer would actually want to see, in one place:
 
 | Signal | Where it shows up |
 |---|---|
-| **Tests** | 170 fast tests, ~40s. Markers separate fast / slow / integration. CI runs fast tier on every push. |
+| **Tests** | 178 fast tests, ~50s. Markers separate fast / slow / integration. CI runs fast tier on every push. |
 | **CI** | GitHub Actions: lint (ruff) → test → docker build, on every PR. |
 | **Lint** | `ruff check` clean across `src/` and `tests/`. Selected rules: `E, F, I, N, W, UP, B, SIM`. |
 | **Containerization** | Multi-stage `Dockerfile` (CPU + GPU variants). `docker-compose` with API + ChromaDB + Prometheus + Grafana. |
@@ -52,14 +52,12 @@ The things a reviewer would actually want to see, in one place:
 
 Honest list. Order is roughly "biggest payoff first."
 
-1. **Actually run the LoRA fine-tune.** The training pipeline is wired and tested against the mock, but I haven't spent a real GPU hour on the Qwen base. The eval numbers in the model card are a baseline against the un-tuned model — proper before/after numbers would be the most valuable single addition.
+1. **Actually run the LoRA fine-tune.** The training pipeline is wired and tested against the mock, but I haven't spent a real GPU hour on the Qwen base. The eval numbers in the model card are a baseline against the un-tuned model — proper before/after numbers would be the most valuable single addition. The Colab notebook at [`notebooks/colab_finetune.ipynb`](../notebooks/colab_finetune.ipynb) packages the full train → merge → evaluate loop for a free T4; running it produces `results/eval_report_ft.json` next to the existing mock baseline.
 2. **Replace the in-process `TraceStore` with OpenTelemetry.** The current ring-buffer is fine for a demo and avoids OTel overhead in CI, but in production you want spans to flow into Tempo / Honeycomb / your favorite backend. The `TraceRecorder` shape was kept small specifically so this is a swap, not a rewrite.
 3. **Move from "intent labels" to "tool calls."** Right now intent classification is a separate model whose only output is a label. With function-calling-capable LLMs (or just structured-output prompting), the same signal could come out of the generation step itself, eliminating one network hop and one model load. Trade-off: harder to A/B the classifier.
-4. **Persona embedding scoring for Tree of Thoughts.** ToT currently picks the first candidate (the mock model can't score). With a real model + a persona embedding per character, scoring `cos(candidate_emb, persona_emb)` would close the loop and turn ToT from a flag into something with a measurable quality lift.
-5. **Streaming tracing.** Spans are recorded for `/dialogue` (sync) but not `/dialogue/stream` (SSE). Adding span-on-first-token + span-on-completion would give a richer picture for the streaming path, which is the one a real game would use.
-6. **Replace ChromaDB with pgvector.** Chroma is great for "embedded, no ops." For production at game scale you want the vector index *next to* the player/quest tables so retrieval can do `WHERE faction_id = ?` joins.
-7. **Adversarial robustness eval that goes deeper than 15 examples.** Current adversarial set covers the obvious shapes (prompt injection, jailbreak, off-topic). A proper red-team would generate adversarial inputs *per character* (e.g., things that try to break a specific persona) and track regression over fine-tuning runs.
-8. **Latency budget enforcement.** Every stage has a known p95 — the pipeline could enforce a per-request budget and short-circuit (e.g., skip RAG if intent is `social`) when the budget is tight. Hooks are in place via the trace metadata; the policy is the missing piece.
+4. **Replace ChromaDB with pgvector.** Chroma is great for "embedded, no ops." For production at game scale you want the vector index *next to* the player/quest tables so retrieval can do `WHERE faction_id = ?` joins.
+5. **Adversarial robustness eval that goes deeper than 15 examples.** Current adversarial set covers the obvious shapes (prompt injection, jailbreak, off-topic). A proper red-team would generate adversarial inputs *per character* (e.g., things that try to break a specific persona) and track regression over fine-tuning runs.
+6. **Latency budget enforcement.** Every stage has a known p95 — the pipeline could enforce a per-request budget and short-circuit (e.g., skip RAG if intent is `social`) when the budget is tight. Hooks are in place via the trace metadata; the policy is the missing piece.
 
 ---
 

@@ -39,6 +39,115 @@ DEFAULT_GOLDEN = Path("data/eval/golden_dialogues.jsonl")
 DEFAULT_ADVERSARIAL = Path("data/eval/adversarial_inputs.jsonl")
 
 
+def _git_commit_sha() -> str | None:
+    """Return the current git commit SHA, or ``None`` if we're not in a repo.
+
+    Best-effort — used only for report metadata, not for control flow.
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    sha = result.stdout.strip()
+    return sha or None
+
+
+def _gpu_name() -> str | None:
+    """Return the active CUDA device name, or ``None`` on CPU-only machines.
+
+    We import torch lazily because the eval CLI also runs in environments
+    that don't have torch installed (e.g., a CI lint job that just imports
+    the script for static checks). Catching ``ImportError`` keeps the
+    helper safe to call unconditionally.
+    """
+    try:
+        import torch  # noqa: PLC0415  (lazy by design)
+    except ImportError:
+        return None
+    if not torch.cuda.is_available():
+        return None
+    try:
+        return torch.cuda.get_device_name(0)
+    except Exception:
+        return None
+
+
+def _package_version(name: str) -> str | None:
+    """Look up an installed package's version. Returns ``None`` if missing."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version(name)
+    except PackageNotFoundError:
+        return None
+
+
+def _collect_environment(adapter_path: str | None, note: str | None) -> dict:
+    """Gather a small environment block for the eval report.
+
+    The point is reproducibility: a future reviewer should be able to look
+    at ``eval_report_ft.json`` and answer "what code, what model, what
+    machine produced this?" without spelunking through git history. The
+    fields we capture are the minimum that lets you re-run the same eval:
+
+    * ``commit_sha`` — the code (excluding uncommitted work; that's noted
+      in the dataset block via ``model_version`` / dataset paths).
+    * ``python_version`` and torch / transformers / peft versions — the
+      runtime, since transformers in particular has subtle behavior
+      differences between minor releases that affect generation.
+    * ``gpu`` — what the model was loaded on. For mock baselines this is
+      typically ``None``; for the merged-model run it should be the T4.
+    * ``adapter_path`` — which merged-model directory was scored. Echoes
+      the ``--model-path`` arg, or ``None`` for the mock baseline.
+    * ``note`` — free-form text from ``--note`` for things that don't fit
+      a schema (training duration, hyperparam tweak, "second seed", etc).
+    """
+    import platform
+
+    return {
+        "commit_sha": _git_commit_sha(),
+        "python_version": platform.python_version(),
+        "torch_version": _package_version("torch"),
+        "transformers_version": _package_version("transformers"),
+        "peft_version": _package_version("peft"),
+        "gpu": _gpu_name(),
+        "adapter_path": adapter_path,
+        "note": note,
+    }
+
+
+def _apply_model_path_env(path: str) -> None:
+    """Wire a ``--model-path`` argument through to the model loader via env vars.
+
+    The dialogue model is constructed from pydantic-settings (`MODEL_*` env
+    vars + ``DIALOGUE_MODEL_MODE``), so the cleanest way to override the
+    base model from the CLI is to set the env vars *before* ``get_config``
+    runs. We force transformers mode and disable 4-bit quantization since
+    the merged model dir is already saved at the dtype the export script
+    chose — re-quantizing on load would either crash or double-quantize.
+
+    Extracted as a helper so it can be tested without spinning up the full
+    evaluation pipeline.
+    """
+    import os
+
+    os.environ["MODEL_BASE_MODEL"] = path
+    os.environ["DIALOGUE_MODEL_MODE"] = "transformers"
+    # ``setdefault`` so a user who explicitly sets MODEL_LOAD_IN_4BIT=true
+    # to test 4-bit inference on a non-quantized merge can still do so.
+    os.environ.setdefault("MODEL_LOAD_IN_4BIT", "false")
+
+
 def _load_jsonl(path: Path) -> list[dict]:
     """Read a JSONL file into a list of dicts. Skips blank lines."""
     if not path.exists():
@@ -121,19 +230,23 @@ def main() -> None:
             "DIALOGUE_MODEL_MODE=transformers."
         ),
     )
+    parser.add_argument(
+        "--note",
+        type=str,
+        default=None,
+        help=(
+            "Free-form note recorded under environment.note in the JSON "
+            "report. Useful for things like training duration, seed, or "
+            "any hyperparam tweak that doesn't deserve a dedicated field."
+        ),
+    )
     args = parser.parse_args()
 
     # Honor --model-path before any config is loaded so pydantic-settings
-    # picks it up via env vars.
-    import os as _os
-
+    # picks it up via env vars. See ``_apply_model_path_env`` for the
+    # rationale on each var.
     if args.model_path:
-        _os.environ["MODEL_BASE_MODEL"] = args.model_path
-        _os.environ["DIALOGUE_MODEL_MODE"] = "transformers"
-        # The merged model is already full-precision (or the dtype the
-        # export script saved); skip the bnb 4-bit wrapper or it'll
-        # double-quantize and crash.
-        _os.environ.setdefault("MODEL_LOAD_IN_4BIT", "false")
+        _apply_model_path_env(args.model_path)
 
     setup_logging()
     logger = get_logger(__name__)
@@ -263,6 +376,10 @@ def main() -> None:
         "rag_enabled": not args.no_rag,
         "model_version": pipeline.model.model_version,
     }
+    out["environment"] = _collect_environment(
+        adapter_path=args.model_path,
+        note=args.note,
+    )
     with open(args.output, "w") as f:
         json.dump(out, f, indent=2)
 
