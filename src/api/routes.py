@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sse_starlette.sse import EventSourceResponse
 
-from src.api.middleware import ACTIVE_SESSIONS
+from src.api.middleware import ACTIVE_SESSIONS, DIALOGUE_LATENCY
 from src.api.schemas import (
     CharacterDetail,
     CharacterSummary,
@@ -70,6 +70,12 @@ async def generate_dialogue(body: DialogueRequest, request: Request) -> Dialogue
         use_tot=body.use_tot,
     )
 
+    # Pipeline-only latency (excludes HTTP/middleware overhead). Lets the
+    # Grafana dashboard split "model time" from "FastAPI time" — the latter
+    # was already exposed via REQUEST_LATENCY, but the per-character cut on
+    # generation latency was defined and never observed until now.
+    DIALOGUE_LATENCY.labels(character_id=body.character_id).observe(result.latency_ms / 1000.0)
+
     # Update active sessions gauge
     ACTIVE_SESSIONS.set(pipeline.context_manager.active_session_count)
 
@@ -102,13 +108,28 @@ async def stream_dialogue(body: DialogueRequest, request: Request) -> EventSourc
         )
 
     async def event_generator() -> AsyncIterator[dict[str, str]]:
-        for token in pipeline.process_stream(
+        # stream_events emits a `metadata` frame first (intent + lore_refs),
+        # then `token` frames, then a final `done` frame with latency. We
+        # forward each one verbatim so the client gets framing info before
+        # the typewriter starts.
+        import json as _json
+
+        for ev in pipeline.stream_events(
             player_message=body.player_message,
             character_id=body.character_id,
             session_id=body.session_id,
         ):
-            yield {"event": "token", "data": token}
-        yield {"event": "done", "data": ""}
+            if ev["event"] == "done":
+                # Mirror the sync endpoint's per-character latency observation
+                # so streaming requests show up in the same Prometheus series.
+                try:
+                    payload = _json.loads(ev["data"])
+                    DIALOGUE_LATENCY.labels(character_id=body.character_id).observe(
+                        payload.get("latency_ms", 0.0) / 1000.0
+                    )
+                except (ValueError, KeyError):
+                    pass
+            yield ev
 
     return EventSourceResponse(event_generator())
 

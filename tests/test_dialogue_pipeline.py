@@ -148,6 +148,37 @@ class TestDialoguePipeline:
         full_response = "".join(tokens)
         assert len(full_response) > 0
 
+    def test_stream_events_emits_metadata_then_tokens_then_done(
+        self, pipeline: DialoguePipeline
+    ) -> None:
+        """The SSE-shaped stream must front-load intent/lore and end with latency."""
+        import json
+
+        events = list(
+            pipeline.stream_events(
+                player_message="Got any swords?",
+                character_id="blacksmith",
+                session_id="stream-events-test",
+            )
+        )
+        assert events, "stream_events yielded nothing"
+
+        # First frame is metadata with the structured fields the client needs
+        # to render before the first token arrives.
+        assert events[0]["event"] == "metadata"
+        meta = json.loads(events[0]["data"])
+        assert {"intent", "confidence", "sentiment", "lore_refs", "model_version"} <= set(meta)
+
+        # Last frame is done with a numeric latency_ms.
+        assert events[-1]["event"] == "done"
+        done = json.loads(events[-1]["data"])
+        assert isinstance(done.get("latency_ms"), (int, float))
+        assert done["latency_ms"] >= 0
+
+        # Everything in between is at least one token.
+        token_events = [ev for ev in events[1:-1] if ev["event"] == "token"]
+        assert token_events, "no token events emitted between metadata and done"
+
     def test_process_with_tot(self, pipeline: DialoguePipeline) -> None:
         result = pipeline.process(
             player_message="What should I do about the Shadow Cult?",
@@ -296,7 +327,14 @@ class TestToTScoring:
         trace = pipeline.trace_store.get(result.trace_id or "")
         assert trace is not None
         gen_meta = next(s.metadata for s in trace.spans if s.name == "generation")
-        for key in ("tot_candidates", "tot_winner_tone", "tot_winner_score", "tot_scores", "tot_scoring"):
+        expected_keys = (
+            "tot_candidates",
+            "tot_winner_tone",
+            "tot_winner_score",
+            "tot_scores",
+            "tot_scoring",
+        )
+        for key in expected_keys:
             assert key in gen_meta, f"missing {key} in generation span metadata"
         assert gen_meta["tot_winner_tone"] in (
             "helpful and warm",

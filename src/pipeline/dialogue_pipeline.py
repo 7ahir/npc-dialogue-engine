@@ -186,13 +186,58 @@ class DialoguePipeline:
     ) -> Iterator[str]:
         """Run the pipeline and yield tokens as they're generated.
 
-        Performs intent classification and RAG retrieval upfront,
-        then streams the model's response token-by-token.
+        Token-only stream — kept for callers that just want the text. The
+        SSE endpoint uses :meth:`stream_events` instead so it can prefix
+        the stream with an ``intent``/``lore_refs`` metadata frame.
         """
-        # Pre-generation stages (same as process)
+        for ev in self.stream_events(player_message, character_id, session_id):
+            if ev["event"] == "token":
+                yield ev["data"]
+
+    def stream_events(
+        self,
+        player_message: str,
+        character_id: str,
+        session_id: str = "default",
+    ) -> Iterator[dict[str, str]]:
+        """Run the pipeline and yield typed SSE-shaped events.
+
+        Yields dicts of ``{"event": <type>, "data": <payload>}``:
+
+        * ``metadata`` — JSON string with ``intent``, ``confidence``,
+          ``sentiment``, ``lore_refs``, ``model_version``. Emitted once
+          before any token so the client can render NPC framing
+          (intent badge, lore citations) ahead of the typewriter.
+        * ``token`` — one streamed token from the model.
+        * ``done`` — JSON string with ``latency_ms`` (full pipeline,
+          including upfront stages and stream draining).
+
+        The streaming endpoint previously dropped intent + lore_refs on
+        the floor; clients had to wait for the non-streaming endpoint to
+        get them. This makes the streaming path information-equivalent to
+        ``process()`` while still yielding tokens incrementally.
+        """
+        import json
+
+        start = time.perf_counter()
+
         session = self.context_manager.get_or_create_session(session_id, character_id)
-        lore_context, _ = self._retrieve_safe(player_message)
+        intent, confidence, _all_scores, sentiment = self._classify_safe(player_message)
+        lore_context, lore_refs = self._retrieve_safe(player_message)
         history = session.format_history(max_turns=self.config.api.max_session_history)
+
+        yield {
+            "event": "metadata",
+            "data": json.dumps(
+                {
+                    "intent": intent,
+                    "confidence": round(confidence, 4),
+                    "sentiment": round(sentiment, 4),
+                    "lore_refs": lore_refs,
+                    "model_version": self.model.model_version,
+                }
+            ),
+        }
 
         messages = self.prompt_builder.build_chat_messages(
             character_id=character_id,
@@ -201,16 +246,25 @@ class DialoguePipeline:
             conversation_history=history,
         )
 
-        # Stream generation
         full_response: list[str] = []
         for token in self.model.generate_stream(messages):
             full_response.append(token)
-            yield token
+            yield {"event": "token", "data": token}
 
-        # Update session after streaming completes
         npc_response = "".join(full_response)
         session.add_message("player", player_message)
         session.add_message("npc", npc_response)
+
+        latency_ms = (time.perf_counter() - start) * 1000
+        yield {
+            "event": "done",
+            "data": json.dumps(
+                {
+                    "latency_ms": round(latency_ms, 1),
+                    "response_chars": len(npc_response),
+                }
+            ),
+        }
 
     def _classify_safe(self, text: str) -> tuple[str, float, dict[str, float], float]:
         """Classify intent with graceful fallback on error."""
