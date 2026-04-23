@@ -99,7 +99,7 @@ npc-dialogue-engine/
 │   └── processed/       # Training data (JSONL)
 ├── docker/              # Dockerfile, Dockerfile.gpu, docker-compose.yml
 ├── scripts/             # generate_training_data.py, index_lore.py, run_evaluation.py, export_model.py
-├── tests/               # 142+ tests (config, characters, RAG, pipeline, API, training, evaluation)
+├── tests/               # 178 fast tests + slow tier (LoRA merge, intent classifier)
 └── .github/workflows/   # CI: lint + test + Docker build
 ```
 
@@ -224,9 +224,9 @@ Adds ~2x latency but measurably improves character consistency on complex prompt
 ## Testing
 
 ```bash
-make test           # Fast tests (142+ tests, ~35s)
-make test-slow      # Include intent classifier tests (requires model download)
-make lint           # Ruff linting + format check
+make test           # Fast suite (178 tests, ~50s; excludes slow)
+make test-slow      # Slow tier only (LoRA merge round-trip, intent classifier download)
+make lint           # Ruff check + format check
 make type-check     # MyPy type checking
 ```
 

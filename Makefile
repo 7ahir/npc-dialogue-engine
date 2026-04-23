@@ -1,4 +1,4 @@
-.PHONY: install install-dev install-all test lint format serve train index-lore eval docker-up docker-down clean
+.PHONY: install install-dev install-all test test-slow test-cov test-fast lint type-check format serve train index-lore eval docker-up docker-down clean
 
 # ─── Installation ───────────────────────────────────────────────
 install:
@@ -12,16 +12,24 @@ install-all:
 
 # ─── Code Quality ───────────────────────────────────────────────
 lint:
-	ruff check src/ tests/
+	ruff check src/ tests/ scripts/
+	ruff format --check src/ tests/ scripts/
+
+type-check:
 	mypy src/ --ignore-missing-imports
 
 format:
-	ruff format src/ tests/
-	ruff check --fix src/ tests/
+	ruff format src/ tests/ scripts/
+	ruff check --fix src/ tests/ scripts/
 
 # ─── Testing ────────────────────────────────────────────────────
+# `make test` skips slow tests by default (intent classifier model download,
+# LoRA merge round-trip). Use `make test-slow` to include them.
 test:
-	pytest tests/ -v --tb=short
+	pytest tests/ -v --tb=short -m "not slow"
+
+test-slow:
+	pytest tests/ -v --tb=short -m "slow"
 
 test-cov:
 	pytest tests/ -v --tb=short --cov=src --cov-report=term-missing

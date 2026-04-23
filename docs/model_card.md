@@ -1,5 +1,11 @@
 # Model Card: NPC Dialogue Engine
 
+> **Status:** Design + training-recipe card. The fine-tune itself has not been
+> run — current eval numbers come from the `MockDialogueModel` baseline
+> ([`results/eval_report.json`](../results/eval_report.json)). The card below
+> documents the recipe that would be used when the GPU-backed run lands
+> (tracked as a Tier-2 follow-up in [`case-study.md`](case-study.md)).
+
 ## Model Details
 
 - **Model type:** Causal language model fine-tuned for NPC dialogue generation
@@ -12,22 +18,39 @@
 
 ## Intended Use
 
-Generate character-consistent, lore-grounded dialogue for RPG NPCs. The model is designed to:
-- Stay in character across multi-turn conversations
-- Reference game world lore when relevant (via RAG context)
-- Handle adversarial inputs by staying in character
-- Support 3+ distinct NPC personas (blacksmith, tavern keeper, sage)
+Generate character-consistent, lore-grounded dialogue for RPG NPCs. Target behavior:
+- Stay in character across turns within a session
+- Reference game world lore when RAG injects relevant chunks
+- Handle adversarial inputs without leaking the system prompt
+- Support 3 NPC personas today (blacksmith, tavern keeper, sage); extensible via YAML configs
 
-**Not intended for:** General-purpose chat, factual Q&A, real-world advice.
+**Not intended for:** general-purpose chat, factual Q&A, real-world advice.
 
 ## Training Data
 
-- **Synthetic dialogues:** ~2,000-3,000 examples generated via template-based expansion
-- **Format:** Multi-turn conversations across 10 scenarios × 3 characters
-- **Scenarios:** greeting, quest_request, trade_inquiry, lore_question, threat_response, personal_question, farewell, request_help, rumor_gossip, return_visit
-- **Augmentation:** Character persona injected as system prompt; lore context from RAG
+The checked-in generator (`src/training/data_generation.py`) emits **single-turn
+player→NPC exchanges** — not multi-turn conversations. Default run produces:
 
-## Training Procedure
+- **3 characters × 10 scenarios × 4 examples = 120 exchanges**
+- One `player` message + one `npc` response per example (not a conversation tree)
+- Scenarios: greeting, quest_request, trade_inquiry, lore_question, threat_response,
+  personal_question, farewell, request_help, rumor_gossip, return_visit
+- Templated responses: the generator fills character example_phrases into
+  scenario templates. This is a deliberately small, reproducible seed — not a
+  training corpus.
+
+**What a real fine-tune run would use on top of the seed:**
+
+1. `--examples 30` for ~900 seed exchanges
+2. Augmentation pass: paraphrase each with the base Qwen model to 3× (≈2,700 total)
+3. Multi-turn chaining: stitch compatible scenarios into 2-4 turn conversations
+4. Human review + filter pass before training
+
+The 120-example seed is enough to smoke-test the pipeline; it is **not** enough
+to move the character-consistency metric meaningfully. The `case-study.md`
+Tier-2 section is where the real recipe gets run.
+
+## Training Procedure (planned)
 
 - **LoRA config:** r=16, alpha=32, target=q_proj/k_proj/v_proj/o_proj, dropout=0.05
 - **Quantization:** load_in_4bit=True, NF4, double quantization
@@ -40,15 +63,22 @@ Generate character-consistent, lore-grounded dialogue for RPG NPCs. The model is
 
 ## Evaluation
 
-| Metric | Target | Description |
-|--------|--------|-------------|
-| Character Consistency | >0.65 | Cosine similarity between response and persona embeddings |
-| Lore Accuracy | >0.80 | Semantic similarity against retrieved lore chunks |
-| Response Diversity | Self-BLEU <0.4 | Diversity across 10 responses to same prompt |
-| BERTScore F1 | >0.70 | Against golden reference responses |
-| Latency p95 | <800ms | End-to-end including retrieval |
-| Safety Rate | >95% | Stays in character on adversarial inputs |
-| Grounding Rate | tracked | References RAG-retrieved information |
+Current numbers are **mock-baseline** from `results/eval_report.json`
+(20 golden examples, 15 adversarial probes, full pipeline with RAG):
+
+| Metric | Target | Mock baseline | Description |
+|---|---|---|---|
+| Character Consistency | >0.65 | 0.39 ❌ | Cosine(response_embedding, persona_embedding) |
+| Lore Accuracy | >0.80 | 0.32 ❌ | Cosine(response, retrieved_chunks) |
+| Response Diversity | Self-BLEU <0.4 | 0.75 ❌ | Across 20 golden responses |
+| BERTScore F1 | >0.70 | 0.25 ❌ | Against golden reference responses |
+| Latency p95 | <800ms | 661ms ✅ | End-to-end; median 273ms, max 3.8s (first-request warmup) |
+| Safety Rate | >95% | 100% ✅ | 15 adversarial probes; mock can't follow malicious instructions either |
+| Grounding Rate | tracked | 0.00 | Mock ignores RAG context by design |
+
+The four failing metrics are the ones a real fine-tune is expected to fix.
+Latency + safety pass by pipeline architecture, not by model quality — see
+[`failure-modes.md`](failure-modes.md) for what that distinction costs.
 
 ## Limitations
 
