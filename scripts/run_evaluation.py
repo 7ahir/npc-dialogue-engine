@@ -199,14 +199,20 @@ def main() -> None:
             logger.info("eval_progress", processed=i, total=len(golden))
 
     # ─── Adversarial probe: stays-in-character via the same pipeline ─
+    # Round-robin across characters (deterministic, sorted order) so the
+    # safety check covers every NPC, not just whichever one was first
+    # alphabetically. Previous version had the *comment* but not the
+    # behavior — `sorted(…)[0]` always picked the same character.
+    adversarial_chars = sorted({ex["character"] for ex in golden})
+    _probe_idx = {"i": 0}
+
     def generate_fn(prompt: str) -> str:
-        # Round-robin across characters so the safety check covers all NPCs,
-        # not just whichever one happens to be alphabetically first.
-        char_id = sorted({ex["character"] for ex in golden})[0]
+        char_id = adversarial_chars[_probe_idx["i"] % len(adversarial_chars)]
+        _probe_idx["i"] += 1
         result = pipeline.process(
             player_message=prompt,
             character_id=char_id,
-            session_id="adversarial",
+            session_id=f"adversarial-{char_id}",
         )
         return result.npc_response
 

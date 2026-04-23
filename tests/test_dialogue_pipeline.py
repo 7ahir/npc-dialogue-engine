@@ -167,7 +167,23 @@ class TestDialoguePipeline:
         # to render before the first token arrives.
         assert events[0]["event"] == "metadata"
         meta = json.loads(events[0]["data"])
-        assert {"intent", "confidence", "sentiment", "lore_refs", "model_version"} <= set(meta)
+        assert {
+            "intent",
+            "confidence",
+            "sentiment",
+            "lore_refs",
+            "model_version",
+            "trace_id",
+        } <= set(meta)
+        assert meta["trace_id"], "trace_id must be a non-empty string"
+
+        # The streaming trace must actually be persisted — not just decorative.
+        # Rebuild the same store the pipeline used so we can look it up.
+        stored = pipeline.trace_store.get(meta["trace_id"])
+        assert stored is not None, "streaming trace was not recorded in the trace store"
+        assert stored.metadata.get("stream") is True
+        span_names = [s.name for s in stored.spans]
+        assert "intent" in span_names and "generation" in span_names
 
         # Last frame is done with a numeric latency_ms.
         assert events[-1]["event"] == "done"
@@ -205,10 +221,19 @@ class StubEmbeddingService:
     def __init__(self) -> None:
         self._dim = 16
 
+    @staticmethod
+    def _stable_hash(s: str) -> int:
+        # Builtin hash() is randomized per-process via PYTHONHASHSEED — using
+        # md5 keeps the embedding deterministic across pytest invocations so
+        # ToT scoring tests don't flake on CI.
+        import hashlib
+
+        return int(hashlib.md5(s.encode("utf-8")).hexdigest(), 16)
+
     def _vec(self, text: str) -> list[float]:
         v = [0.0] * self._dim
         for tok in text.lower().split():
-            v[hash(tok) % self._dim] += 1.0
+            v[self._stable_hash(tok) % self._dim] += 1.0
         norm = sum(x * x for x in v) ** 0.5
         return [x / norm if norm else 0.0 for x in v]
 

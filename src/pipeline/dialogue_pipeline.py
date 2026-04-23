@@ -205,25 +205,38 @@ class DialoguePipeline:
         Yields dicts of ``{"event": <type>, "data": <payload>}``:
 
         * ``metadata`` — JSON string with ``intent``, ``confidence``,
-          ``sentiment``, ``lore_refs``, ``model_version``. Emitted once
-          before any token so the client can render NPC framing
-          (intent badge, lore citations) ahead of the typewriter.
+          ``sentiment``, ``lore_refs``, ``model_version``, ``trace_id``.
+          Emitted once before any token so the client can render NPC
+          framing (intent badge, lore citations) and link to the trace
+          inspector ahead of the typewriter.
         * ``token`` — one streamed token from the model.
         * ``done`` — JSON string with ``latency_ms`` (full pipeline,
-          including upfront stages and stream draining).
+          including upfront stages and stream draining) and ``trace_id``.
 
-        The streaming endpoint previously dropped intent + lore_refs on
-        the floor; clients had to wait for the non-streaming endpoint to
-        get them. This makes the streaming path information-equivalent to
-        ``process()`` while still yielding tokens incrementally.
+        Records a real trace in the trace store — same span shape as
+        ``process()`` — so the ``trace_id`` returned in metadata is a
+        live link, not a decorative field. Streaming was previously
+        invisible to ``/traces``; now it shows up alongside sync
+        requests with a ``stream=true`` marker on the trace metadata.
         """
         import json
 
+        recorder = TraceRecorder()
         start = time.perf_counter()
 
-        session = self.context_manager.get_or_create_session(session_id, character_id)
-        intent, confidence, _all_scores, sentiment = self._classify_safe(player_message)
-        lore_context, lore_refs = self._retrieve_safe(player_message)
+        with recorder.span("session"):
+            session = self.context_manager.get_or_create_session(session_id, character_id)
+
+        with recorder.span("intent") as meta:
+            intent, confidence, _all_scores, sentiment = self._classify_safe(player_message)
+            meta["label"] = intent
+            meta["confidence"] = confidence
+            meta["sentiment"] = sentiment
+
+        with recorder.span("retrieval") as meta:
+            lore_context, lore_refs = self._retrieve_safe(player_message)
+            meta["chunks"] = len(lore_refs)
+
         history = session.format_history(max_turns=self.config.api.max_session_history)
 
         yield {
@@ -235,33 +248,49 @@ class DialoguePipeline:
                     "sentiment": round(sentiment, 4),
                     "lore_refs": lore_refs,
                     "model_version": self.model.model_version,
+                    "trace_id": recorder.trace_id,
                 }
             ),
         }
 
-        messages = self.prompt_builder.build_chat_messages(
-            character_id=character_id,
-            player_message=player_message,
-            lore_context=lore_context,
-            conversation_history=history,
-        )
+        with recorder.span("prompt"):
+            messages = self.prompt_builder.build_chat_messages(
+                character_id=character_id,
+                player_message=player_message,
+                lore_context=lore_context,
+                conversation_history=history,
+            )
 
         full_response: list[str] = []
-        for token in self.model.generate_stream(messages):
-            full_response.append(token)
-            yield {"event": "token", "data": token}
+        with recorder.span("generation") as meta:
+            meta["mode"] = "stream"
+            for token in self.model.generate_stream(messages):
+                full_response.append(token)
+                yield {"event": "token", "data": token}
+            meta["response_chars"] = sum(len(t) for t in full_response)
+            meta["token_count"] = len(full_response)
 
         npc_response = "".join(full_response)
         session.add_message("player", player_message)
         session.add_message("npc", npc_response)
 
         latency_ms = (time.perf_counter() - start) * 1000
+        trace = recorder.finish(
+            character_id=character_id,
+            session_id=session_id,
+            intent=intent,
+            stream=True,
+            model_version=self.model.model_version,
+        )
+        self.trace_store.add(trace)
+
         yield {
             "event": "done",
             "data": json.dumps(
                 {
                     "latency_ms": round(latency_ms, 1),
                     "response_chars": len(npc_response),
+                    "trace_id": recorder.trace_id,
                 }
             ),
         }
