@@ -156,3 +156,180 @@ class TestDialoguePipeline:
             use_tot=True,
         )
         assert len(result.npc_response) > 0
+
+
+# ─── Tree of Thoughts Scoring ────────────────────────────────────
+
+
+class StubEmbeddingService:
+    """Deterministic embedding stub: encodes by token-set vector.
+
+    Embeds each text into a dict-of-counts (treated as a sparse vector),
+    L2-normalizes, then converts back to a 16-dim dense vector by hashing
+    tokens to slots. Cosine sim between two of these is high when the
+    texts share many words. Good enough to make the scoring path
+    discriminate predictably without loading sentence-transformers.
+    """
+
+    def __init__(self) -> None:
+        self._dim = 16
+
+    def _vec(self, text: str) -> list[float]:
+        v = [0.0] * self._dim
+        for tok in text.lower().split():
+            v[hash(tok) % self._dim] += 1.0
+        norm = sum(x * x for x in v) ** 0.5
+        return [x / norm if norm else 0.0 for x in v]
+
+    def embed(self, text: str) -> list[float]:
+        return self._vec(text)
+
+    def embed_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+        return [self._vec(t) for t in texts]
+
+
+class _ScriptedModel:
+    """Returns a different fixed response each call, in order. Lets us assert
+    *which* candidate ToT picked rather than relying on the mock model's
+    keyword-overlap heuristic."""
+
+    def __init__(self, responses: list[str]) -> None:
+        self._responses = list(responses)
+        self._idx = 0
+
+    def generate(self, messages):  # type: ignore[no-untyped-def]
+        out = self._responses[self._idx % len(self._responses)]
+        self._idx += 1
+        return out
+
+    def generate_stream(self, messages):  # type: ignore[no-untyped-def]
+        yield self.generate(messages)
+
+    @property
+    def model_version(self) -> str:
+        return "scripted-test"
+
+
+class TestToTScoring:
+    """Lock down that ToT actually scores candidates and picks the best one,
+    not the historical 'always return candidate[0]' bug."""
+
+    def _make_pipeline(self, model, embedding_service=None) -> DialoguePipeline:
+        return DialoguePipeline(
+            model=model,
+            retriever=StubRetriever(),  # type: ignore[arg-type]
+            prompt_builder=PromptBuilder(),
+            context_manager=ContextManager(),
+            embedding_service=embedding_service,
+        )
+
+    def test_tot_picks_candidate_closest_to_persona_with_embeddings(self) -> None:
+        # The blacksmith's example_phrases are full of "steel", "forge",
+        # "cinder", etc. Candidate B reuses that vocabulary; A and C don't.
+        # With the stub embedding service (token-overlap cosine), B should win.
+        model = _ScriptedModel(
+            responses=[
+                "Greetings, traveler, I am most pleased to see you.",  # A: friendly, off-vocab
+                "Good steel speaks for itself. Bring me the materials, "
+                "I'll forge it. Always has been the deal.",  # B: blacksmith voice
+                "The mists obscure all answers, child of the void.",  # C: cryptic, off-vocab
+            ]
+        )
+        pipeline = self._make_pipeline(model, embedding_service=StubEmbeddingService())
+
+        result = pipeline.process(
+            player_message="Make me a sword",
+            character_id="blacksmith",
+            session_id="tot-cosine",
+            use_tot=True,
+        )
+
+        assert "forge" in result.npc_response.lower()
+        # The generation span should expose ToT bookkeeping
+        trace = pipeline.trace_store.get(result.trace_id or "")
+        assert trace is not None
+        gen_span = next(s for s in trace.spans if s.name == "generation")
+        assert gen_span.metadata["tot_candidates"] == 3
+        assert gen_span.metadata["tot_scoring"] == "cosine"
+        assert len(gen_span.metadata["tot_scores"]) == 3
+        # Winner score should match the reported max
+        assert gen_span.metadata["tot_winner_score"] == max(gen_span.metadata["tot_scores"])
+
+    def test_tot_falls_back_to_lexical_without_embedding_service(self) -> None:
+        # No embedding service → lexical overlap with example_phrases.
+        # Candidate B borrows multiple words from the blacksmith's phrases.
+        model = _ScriptedModel(
+            responses=[
+                "Hello there friend.",  # zero overlap
+                "Good steel speaks. Bring materials, I'll forge it.",  # overlaps a lot
+                "Mist and shadow.",  # zero overlap
+            ]
+        )
+        pipeline = self._make_pipeline(model, embedding_service=None)
+
+        result = pipeline.process(
+            player_message="Make me a sword",
+            character_id="blacksmith",
+            session_id="tot-lexical",
+            use_tot=True,
+        )
+
+        assert "forge" in result.npc_response.lower()
+        trace = pipeline.trace_store.get(result.trace_id or "")
+        assert trace is not None
+        gen_span = next(s for s in trace.spans if s.name == "generation")
+        assert gen_span.metadata["tot_scoring"] == "lexical"
+        assert gen_span.metadata["tot_winner_score"] > 0  # actually scored, not zero-default
+
+    def test_tot_metadata_attached_to_trace(self) -> None:
+        model = _ScriptedModel(
+            responses=["one alpha", "two beta steel forge", "three gamma"]
+        )
+        pipeline = self._make_pipeline(model, embedding_service=StubEmbeddingService())
+        result = pipeline.process(
+            player_message="hi",
+            character_id="blacksmith",
+            session_id="tot-meta",
+            use_tot=True,
+        )
+
+        trace = pipeline.trace_store.get(result.trace_id or "")
+        assert trace is not None
+        gen_meta = next(s.metadata for s in trace.spans if s.name == "generation")
+        for key in ("tot_candidates", "tot_winner_tone", "tot_winner_score", "tot_scores", "tot_scoring"):
+            assert key in gen_meta, f"missing {key} in generation span metadata"
+        assert gen_meta["tot_winner_tone"] in (
+            "helpful and warm",
+            "cautious and guarded",
+            "mysterious and cryptic",
+        )
+
+    def test_persona_embedding_is_cached(self) -> None:
+        """The persona reference text never changes per character, so we
+        should embed it exactly once even across many ToT requests."""
+
+        class CountingStub(StubEmbeddingService):
+            def __init__(self) -> None:
+                super().__init__()
+                self.embed_calls = 0
+
+            def embed(self, text: str) -> list[float]:
+                self.embed_calls += 1
+                return super().embed(text)
+
+        emb = CountingStub()
+        model = _ScriptedModel(responses=["a", "b", "c"] * 10)
+        pipeline = self._make_pipeline(model, embedding_service=emb)
+
+        for i in range(3):
+            pipeline.process(
+                player_message=f"msg {i}",
+                character_id="blacksmith",
+                session_id=f"cache-{i}",
+                use_tot=True,
+            )
+
+        # Persona embed should have been called exactly once for blacksmith
+        assert emb.embed_calls == 1, (
+            f"expected 1 persona embed across 3 ToT calls, got {emb.embed_calls}"
+        )
