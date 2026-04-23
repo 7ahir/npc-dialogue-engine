@@ -111,7 +111,29 @@ def main() -> None:
         action="store_true",
         help="Skip RAG retrieval (faster but disables grounding metrics)",
     )
+    parser.add_argument(
+        "--model-path",
+        type=str,
+        default=None,
+        help=(
+            "Override base_model with a local merged-model dir (e.g. "
+            "models/merged after running scripts/export_model.py). Implies "
+            "DIALOGUE_MODEL_MODE=transformers."
+        ),
+    )
     args = parser.parse_args()
+
+    # Honor --model-path before any config is loaded so pydantic-settings
+    # picks it up via env vars.
+    import os as _os
+
+    if args.model_path:
+        _os.environ["MODEL_BASE_MODEL"] = args.model_path
+        _os.environ["DIALOGUE_MODEL_MODE"] = "transformers"
+        # The merged model is already full-precision (or the dtype the
+        # export script saved); skip the bnb 4-bit wrapper or it'll
+        # double-quantize and crash.
+        _os.environ.setdefault("MODEL_LOAD_IN_4BIT", "false")
 
     setup_logging()
     logger = get_logger(__name__)

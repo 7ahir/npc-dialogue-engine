@@ -142,11 +142,13 @@ make docker-up  # or: docker compose -f docker/docker-compose.yml up -d
 
 ### Training (GPU Required)
 
-After `pip install -e .`, the project exposes four CLI commands. Each is also runnable as a script (`python scripts/<name>.py …`).
+The full **train → merge → evaluate** loop is packaged as a Colab notebook for reproducibility on a free T4: [`notebooks/colab_finetune.ipynb`](notebooks/colab_finetune.ipynb). Open in Colab → Runtime → T4 GPU → Run All. Wallclock is ~3-5h.
+
+For local runs, the project also exposes four CLI commands (also runnable as `python scripts/<name>.py …`):
 
 ```bash
 # Generate synthetic training data
-npc-generate-data --output data/processed/train.jsonl
+npc-generate-data --output data/processed/train.jsonl --examples 30
 
 # Index lore documents into ChromaDB
 npc-index-lore
@@ -156,7 +158,10 @@ pip install -e ".[ml,gpu,train]"
 python src/training/train_lora.py --data-path data/processed/train.jsonl
 
 # Merge adapter into base model for deployment
-npc-export --adapter-path models/lora/final
+npc-export --adapter-path models/qwen-npc-lora/final --output models/merged
+
+# Evaluate the merged model against the same datasets as the mock baseline
+npc-eval --model-path models/merged --output results/eval_report_ft.json
 ```
 
 ## API Endpoints
@@ -191,6 +196,20 @@ DIALOGUE_MODEL_MODE=mock npc-eval --output results/eval_report.json
 
 Full report: [`results/eval_report.json`](results/eval_report.json).
 Annotated failure modes: [`docs/failure-modes.md`](docs/failure-modes.md) — ten real captured transcripts showing where the pipeline mis-routes, mis-retrieves, or silently produces fluent garbage, with the pipeline-vs-model fix for each.
+
+### Fine-tuned model results
+
+Pending — to be filled in by [`notebooks/colab_finetune.ipynb`](notebooks/colab_finetune.ipynb). The notebook generates `results/eval_report_ft.json` and prints a markdown row for each metric; this section is the table to drop those rows into:
+
+| Metric | Threshold | Mock | Fine-tuned | Δ |
+|---|---|---|---|---|
+| Character Consistency | >0.65 | 0.39 ❌ | _pending_ | _pending_ |
+| Lore Accuracy | >0.80 | 0.32 ❌ | _pending_ | _pending_ |
+| BERTScore F1 | >0.70 | 0.25 ❌ | _pending_ | _pending_ |
+| Response Diversity | <0.4 | 0.75 ❌ | _pending_ | _pending_ |
+| Latency p95 | <800ms | 661ms ✅ | _pending_ | _pending_ |
+| Safety Rate | >95% | 100% ✅ | _pending_ | _pending_ |
+| Grounding Rate | tracked | 0.00 | _pending_ | _pending_ |
 
 ## Characters
 
