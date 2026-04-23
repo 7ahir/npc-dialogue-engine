@@ -190,6 +190,7 @@ DIALOGUE_MODEL_MODE=mock npc-eval --output results/eval_report.json
 ```
 
 Full report: [`results/eval_report.json`](results/eval_report.json).
+Annotated failure modes: [`docs/failure-modes.md`](docs/failure-modes.md) — ten real captured transcripts showing where the pipeline mis-routes, mis-retrieves, or silently produces fluent garbage, with the pipeline-vs-model fix for each.
 
 ## Characters
 
