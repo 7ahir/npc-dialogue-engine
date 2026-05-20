@@ -144,7 +144,7 @@ make docker-up  # or: docker compose -f docker/docker-compose.yml up -d
 
 The full **train → merge → evaluate** loop is packaged as a Colab notebook for reproducibility on a free T4: [`notebooks/colab_finetune.ipynb`](notebooks/colab_finetune.ipynb). Open in Colab → Runtime → T4 GPU → Run All. Wallclock is ~3-5h.
 
-For local runs, the project also exposes four CLI commands (also runnable as `python scripts/<name>.py …`):
+For local runs, the project also exposes CLI commands (also runnable as `python scripts/<name>.py …`):
 
 ```bash
 # Generate synthetic training data

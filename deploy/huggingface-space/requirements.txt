@@ -1,5 +1,5 @@
 # HuggingFace Space dependencies — mock mode, CPU-only.
-# Mirror of the main repo's [ml] + [eval] extras, pinned for reproducibility.
+# Mirror of the main repo's [ml] + [eval] extras.
 
 fastapi>=0.136.1
 pydantic>=2.13.4
