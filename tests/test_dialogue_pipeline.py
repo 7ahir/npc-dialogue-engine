@@ -338,9 +338,7 @@ class TestToTScoring:
         assert gen_span.metadata["tot_winner_score"] > 0  # actually scored, not zero-default
 
     def test_tot_metadata_attached_to_trace(self) -> None:
-        model = _ScriptedModel(
-            responses=["one alpha", "two beta steel forge", "three gamma"]
-        )
+        model = _ScriptedModel(responses=["one alpha", "two beta steel forge", "three gamma"])
         pipeline = self._make_pipeline(model, embedding_service=StubEmbeddingService())
         result = pipeline.process(
             player_message="hi",

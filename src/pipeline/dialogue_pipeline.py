@@ -422,8 +422,7 @@ class DialoguePipeline:
             try:
                 cand_embs = self.embedding_service.embed_batch(candidates)
                 scores = [
-                    sum(a * b for a, b in zip(persona_emb, ce, strict=True))
-                    for ce in cand_embs
+                    sum(a * b for a, b in zip(persona_emb, ce, strict=True)) for ce in cand_embs
                 ]
                 return scores, "cosine"
             except Exception as exc:  # noqa: BLE001
@@ -442,7 +441,6 @@ class DialoguePipeline:
         if not phrase_words:
             return [0.0] * len(candidates), "lexical"
         scores = [
-            len(set(c.lower().split()) & phrase_words) / len(phrase_words)
-            for c in candidates
+            len(set(c.lower().split()) & phrase_words) / len(phrase_words) for c in candidates
         ]
         return scores, "lexical"
