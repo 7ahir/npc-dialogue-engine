@@ -4,6 +4,9 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 COPY pyproject.toml .
+COPY README.md .
+COPY src/ /build/src/
+COPY scripts/ /build/scripts/
 # Install ML extras so transformers / sentence-transformers / chromadb are
 # present — the API imports them at module load time (LoreRetriever,
 # IntentClassifier) and would ImportError on startup otherwise.

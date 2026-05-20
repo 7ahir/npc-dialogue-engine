@@ -1,14 +1,17 @@
-.PHONY: install install-dev install-all test test-slow test-cov test-fast lint type-check format serve train index-lore eval docker-up docker-down clean
+PYTHON ?= python3
+PIP ?= $(PYTHON) -m pip
+
+.PHONY: install install-dev install-all test test-slow test-cov test-fast lint type-check format serve train index-lore eval render-ft-results docker-up docker-down clean
 
 # ─── Installation ───────────────────────────────────────────────
 install:
-	pip install -e .
+	$(PIP) install -e .
 
 install-dev:
-	pip install -e ".[dev]"
+	$(PIP) install -e ".[dev]"
 
 install-all:
-	pip install -e ".[dev,eval,train]"
+	$(PIP) install -e ".[dev,eval,train]"
 
 # ─── Code Quality ───────────────────────────────────────────────
 lint:
@@ -43,19 +46,22 @@ serve:
 
 # ─── ML Pipeline ────────────────────────────────────────────────
 index-lore:
-	python scripts/index_lore.py
+	$(PYTHON) scripts/index_lore.py
 
 train:
-	python src/training/train_lora.py
+	$(PYTHON) src/training/train_lora.py
 
 eval:
-	python scripts/run_evaluation.py
+	$(PYTHON) scripts/run_evaluation.py
+
+render-ft-results:
+	$(PYTHON) scripts/render_eval_comparison.py --ft results/eval_report_ft.json --output results/eval_comparison.md --update-readme
 
 generate-data:
-	python scripts/generate_training_data.py
+	$(PYTHON) scripts/generate_training_data.py
 
 export-model:
-	python scripts/export_model.py
+	$(PYTHON) scripts/export_model.py
 
 # ─── Docker ─────────────────────────────────────────────────────
 docker-up:
