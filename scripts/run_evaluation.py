@@ -126,6 +126,22 @@ def _collect_environment(adapter_path: str | None, note: str | None) -> dict:
     }
 
 
+def _collect_training_metadata(
+    train_examples: int | None,
+    train_wallclock_min: float | None,
+) -> dict:
+    """Capture the smallest structured training block worth keeping.
+
+    The fine-tuned report is the evidence artifact reviewers care about, so it
+    should answer "how much data?" and "how long did the run take?" without
+    relying on a free-form notebook note or the README prose.
+    """
+    return {
+        "train_examples": train_examples,
+        "train_wallclock_min": train_wallclock_min,
+    }
+
+
 def _apply_model_path_env(path: str) -> None:
     """Wire a ``--model-path`` argument through to the model loader via env vars.
 
@@ -238,6 +254,25 @@ def main() -> None:
             "Free-form note recorded under environment.note in the JSON "
             "report. Useful for things like training duration, seed, or "
             "any hyperparam tweak that doesn't deserve a dedicated field."
+        ),
+    )
+    parser.add_argument(
+        "--train-examples",
+        type=int,
+        default=None,
+        help=(
+            "Number of training examples used for the fine-tune that produced "
+            "the model under test. Recorded in the JSON report for "
+            "reproducibility."
+        ),
+    )
+    parser.add_argument(
+        "--train-wallclock-min",
+        type=float,
+        default=None,
+        help=(
+            "Wallclock duration of the training run in minutes. Recorded in "
+            "the JSON report for reproducibility."
         ),
     )
     args = parser.parse_args()
@@ -379,6 +414,10 @@ def main() -> None:
     out["environment"] = _collect_environment(
         adapter_path=args.model_path,
         note=args.note,
+    )
+    out["training"] = _collect_training_metadata(
+        train_examples=args.train_examples,
+        train_wallclock_min=args.train_wallclock_min,
     )
     with open(args.output, "w") as f:
         json.dump(out, f, indent=2)

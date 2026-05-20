@@ -132,6 +132,28 @@ class TestCollectEnvironment:
         assert run_evaluation._package_version("definitely-not-a-real-pkg-xyz") is None
 
 
+class TestCollectTrainingMetadata:
+    def test_returns_expected_shape(self):
+        meta = run_evaluation._collect_training_metadata(
+            train_examples=900,
+            train_wallclock_min=147.3,
+        )
+        assert meta == {
+            "train_examples": 900,
+            "train_wallclock_min": 147.3,
+        }
+
+    def test_preserves_missing_values(self):
+        meta = run_evaluation._collect_training_metadata(
+            train_examples=None,
+            train_wallclock_min=None,
+        )
+        assert meta == {
+            "train_examples": None,
+            "train_wallclock_min": None,
+        }
+
+
 class TestGitCommitSha:
     """``_git_commit_sha`` is best-effort. Outside a repo we want None,
     not a crash."""

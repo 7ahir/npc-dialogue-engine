@@ -162,6 +162,9 @@ npc-export --adapter-path models/qwen-npc-lora/final --output models/merged
 
 # Evaluate the merged model against the same datasets as the mock baseline
 npc-eval --model-path models/merged --output results/eval_report_ft.json
+
+# Generate the comparison artifact + replace the README FT-results placeholder
+npc-render-eval-comparison --ft results/eval_report_ft.json --output results/eval_comparison.md --update-readme
 ```
 
 ## API Endpoints
@@ -199,8 +202,9 @@ Annotated failure modes: [`docs/failure-modes.md`](docs/failure-modes.md) — te
 
 ### Fine-tuned model results
 
-Pending — to be filled in by [`notebooks/colab_finetune.ipynb`](notebooks/colab_finetune.ipynb). The notebook generates `results/eval_report_ft.json` and prints a markdown row for each metric; this section is the table to drop those rows into:
+Pending until the GPU-backed run lands. [`notebooks/colab_finetune.ipynb`](notebooks/colab_finetune.ipynb) now generates `results/eval_report_ft.json`, writes `results/eval_comparison.md`, and can replace the placeholder block below automatically via `npc-render-eval-comparison` / `make render-ft-results`.
 
+<!-- FT_RESULTS_START -->
 | Metric | Threshold | Mock | Fine-tuned | Δ |
 |---|---|---|---|---|
 | Character Consistency | >0.65 | 0.39 ❌ | _pending_ | _pending_ |
@@ -210,6 +214,7 @@ Pending — to be filled in by [`notebooks/colab_finetune.ipynb`](notebooks/cola
 | Latency p95 | <800ms | 661ms ✅ | _pending_ | _pending_ |
 | Safety Rate | >95% | 100% ✅ | _pending_ | _pending_ |
 | Grounding Rate | tracked | 0.00 | _pending_ | _pending_ |
+<!-- FT_RESULTS_END -->
 
 ## Characters
 

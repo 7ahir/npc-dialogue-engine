@@ -6,10 +6,11 @@ Two reports live (or will live) here. They share the same evaluation harness (`s
 |---|---|---|---|
 | `eval_report.json` | `MockDialogueModel` (mock-v1) | ✅ committed | `npc-eval --output results/eval_report.json` |
 | `eval_report_ft.json` | Qwen 2.5-3B + LoRA (merged) | ⏳ pending | [`notebooks/colab_finetune.ipynb`](../notebooks/colab_finetune.ipynb), then `npc-eval --model-path models/merged --output results/eval_report_ft.json` |
+| `eval_comparison.md` | Mock vs FT markdown summary | ⏳ pending | `npc-render-eval-comparison --ft results/eval_report_ft.json --output results/eval_comparison.md --update-readme` |
 
 The mock report is the **lower bound**: every quality metric fails because the mock model is a deterministic phrase-picker, not an instruction-follower. It exists to prove the pipeline is correctly wired (intent + RAG + generation + 7 metrics all run end-to-end without a GPU) and to set the bar the fine-tune has to clear.
 
-The fine-tuned report is the **real-model evidence**. Once `colab_finetune.ipynb` produces it, drop it next to this README and update the README's "Fine-tuned model results" table from cell 9's markdown output.
+The fine-tuned report is the **real-model evidence**. Once `colab_finetune.ipynb` produces it, run `npc-render-eval-comparison` (or `make render-ft-results`) to generate `eval_comparison.md` and replace the README's FT-results placeholder block deterministically.
 
 ## Why two reports, not one
 
@@ -23,6 +24,9 @@ DIALOGUE_MODEL_MODE=mock npc-eval --output results/eval_report.json
 
 # Fine-tuned (T4 GPU, after running the Colab notebook)
 npc-eval --model-path models/merged --output results/eval_report_ft.json
+
+# Comparison artifact + README sync
+npc-render-eval-comparison --ft results/eval_report_ft.json --output results/eval_comparison.md --update-readme
 ```
 
 The `--model-path` flag flips the pipeline into transformers mode and points it at a local merged-model directory (the output of `npc-export`).
