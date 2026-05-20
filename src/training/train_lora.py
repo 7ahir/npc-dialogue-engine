@@ -35,9 +35,8 @@ def train(
         AutoModelForCausalLM,
         AutoTokenizer,
         BitsAndBytesConfig,
-        TrainingArguments,
     )
-    from trl import SFTTrainer
+    from trl import SFTConfig, SFTTrainer
 
     from src.training.dataset import create_train_val_split, load_dialogue_dataset
     from src.utils.logging_config import get_logger, setup_logging
@@ -115,7 +114,7 @@ def train(
     )
 
     # ─── Training arguments ────────────────────────────────────
-    training_args = TrainingArguments(
+    training_args = SFTConfig(
         output_dir=str(output_dir),
         num_train_epochs=train_cfg["num_epochs"],
         per_device_train_batch_size=train_cfg["per_device_batch_size"],
@@ -127,11 +126,13 @@ def train(
         logging_steps=train_cfg["logging_steps"],
         save_steps=train_cfg["save_steps"],
         save_total_limit=2,
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         eval_steps=train_cfg["save_steps"],
         report_to="none",  # Set to "wandb" for experiment tracking
         gradient_checkpointing=True,
         max_grad_norm=1.0,
+        max_length=train_cfg["max_seq_length"],
+        eos_token=tokenizer.eos_token,
     )
 
     # ─── Trainer ───────────────────────────────────────────────
@@ -141,7 +142,6 @@ def train(
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         processing_class=tokenizer,
-        max_seq_length=train_cfg["max_seq_length"],
     )
 
     logger.info("training_started")
